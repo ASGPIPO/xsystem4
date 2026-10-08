@@ -55,6 +55,7 @@ target_sources(xsystem4 PRIVATE
   src/font_freetype.c
   src/font_fnl.c
   src/format.c
+  src/governor.c
   src/hacks.c
   src/heap.c
   src/icon.c
@@ -72,6 +73,7 @@ target_sources(xsystem4 PRIVATE
   src/swf.c
   src/system4.c
   src/text.c
+  src/touch_gesture.c
   src/util.c
   src/video.c
   src/vm.c

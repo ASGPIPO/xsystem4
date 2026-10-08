@@ -92,6 +92,9 @@ void gfx_set_clear_color(int r, int g, int b, int a);
 void gfx_set_view_offset(int x, int y);
 void gfx_clear(void);
 void gfx_swap(void);
+// Android power governor: present a frame deferred by gfx_swap() in
+// power-save mode as soon as its frame slot is due.  No-op elsewhere.
+void gfx_flush_pending_present(void);
 void gfx_set_view(struct texture *t);
 void gfx_reset_view(void);
 void gfx_prepare_job(struct gfx_render_job *job);

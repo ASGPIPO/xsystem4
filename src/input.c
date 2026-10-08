@@ -27,8 +27,28 @@
 #include "xsystem4.h"
 #include "debugger.h"
 
+#ifdef __ANDROID__
+#include "governor.h"
+#include "touch_gesture.h"
+#define TOUCH_GESTURE_BUILD 1
+#elif defined(XSYS4_TOUCH_GESTURES)
+// Desktop build with the Android touch/governor input paths enabled, for
+// host-side testing of the real routing (SDL_FINGER* -> gesture engine ->
+// key_state).  Desktop builds without this define stay byte-for-byte
+// identical to upstream.
+#include "governor.h"
+#include "touch_gesture.h"
+#define TOUCH_GESTURE_BUILD 1
+#endif
+
 #ifndef M_PI
 #define M_PI (3.14159265358979323846)
+#endif
+
+#ifdef TOUCH_GESTURE_BUILD
+// Defined together with the gesture engine integration below; forward
+// declared here because mouse_get_pos() consults it.
+static bool touch_gesture_inited;
 #endif
 
 bool key_state[VK_NR_KEYCODES];
@@ -224,6 +244,16 @@ void key_clear_flag(bool no_ctrl)
 
 void mouse_get_pos(int *x, int *y)
 {
+#ifdef TOUCH_GESTURE_BUILD
+	// While the gesture engine owns the pointer (finger down, in any
+	// state), report the gesture-mapped position in game coordinates
+	// instead of the SDL mouse position.  TG_HOLDING reports the touch
+	// origin; a second finger must not move the game's cursor.
+	if (touch_gesture_inited && touch_gesture_get_state() != TG_IDLE) {
+		touch_gesture_get_pos(x, y);
+		return;
+	}
+#endif
 	int wx, wy;
 	SDL_PumpEvents();
 	SDL_GetMouseState(&wx, &wy);
@@ -250,6 +280,107 @@ void mouse_clear_wheel(void)
 {
 	wheel_dir = 0;
 }
+
+#ifdef TOUCH_GESTURE_BUILD
+
+/*
+ * Touch gesture engine integration.
+ *
+ * On Android every finger event is routed through
+ * src/touch_gesture.c instead of the legacy synthetic mouse event
+ * path below.  The old "touch outside the viewport = right
+ * click" rule is disabled: a long-press anywhere produces a right
+ * click at the original touch position.
+ */
+
+static SDL_Haptic *touch_haptic;
+
+static void touch_gesture_haptic(uint32_t ms)
+{
+	// Haptic feedback on long-press. Android SDL2 maps SDL haptics
+	// onto the Vibrator service (android.permission.VIBRATE is
+	// already declared in the app manifest).
+	if (!touch_haptic) {
+		touch_haptic = SDL_HapticOpen(0);
+		if (touch_haptic && SDL_HapticRumbleInit(touch_haptic) < 0) {
+			SDL_HapticClose(touch_haptic);
+			touch_haptic = NULL;
+		}
+	}
+	if (touch_haptic)
+		SDL_HapticRumblePlay(touch_haptic, 0.3f, ms);
+}
+
+// Feed the gesture engine the real window geometry.  Finger events use
+// normalized window coordinates ([0,1] of SDL_GetWindowSize), while
+// sdl.viewport is computed by gfx_update_screen_scale() in drawable
+// pixels (SDL_GL_GetDrawableSize).  On high-DPI screens those differ,
+// so scale the viewport into window units.
+static void touch_gesture_sync_geometry(void)
+{
+	if (!sdl.window)
+		return;
+	int win_w, win_h, draw_w, draw_h;
+	SDL_GetWindowSize(sdl.window, &win_w, &win_h);
+	SDL_GL_GetDrawableSize(sdl.window, &draw_w, &draw_h);
+	if (win_w <= 0 || win_h <= 0 || draw_w <= 0 || draw_h <= 0)
+		return;
+	touch_gesture_set_screen_size(win_w, win_h);
+	if (draw_w != win_w || draw_h != win_h) {
+		float sx = (float)win_w / (float)draw_w;
+		float sy = (float)win_h / (float)draw_h;
+		touch_gesture_set_viewport((int)(sdl.viewport.x * sx), (int)(sdl.viewport.y * sy),
+		                           (int)(sdl.viewport.w * sx), (int)(sdl.viewport.h * sy));
+	} else {
+		touch_gesture_set_viewport(sdl.viewport.x, sdl.viewport.y, sdl.viewport.w, sdl.viewport.h);
+	}
+}
+
+static void touch_gesture_ensure_init(void)
+{
+	if (touch_gesture_inited)
+		return;
+	struct tg_config cfg = {
+		.game_w = config.view_width ? config.view_width : sdl.w,
+		.game_h = config.view_height ? config.view_height : sdl.h,
+		.hold_ms = 350,
+		.drag_threshold = 0.015f,
+		.scroll_step = 0.02f,
+	};
+	touch_gesture_init(&cfg);
+	touch_gesture_sync_geometry();
+	touch_gesture_set_haptic_hook(touch_gesture_haptic);
+	touch_gesture_inited = true;
+}
+
+// The gesture layer owns VK_LBUTTON/VK_RBUTTON/VK_CONTROL only while it
+// is actively driving them.  While it is idle the physical key state
+// (hardware keyboard, Bluetooth mouse) must not be clobbered.
+static bool touch_owns_buttons;
+
+// NOTE: event timestamps are deliberately not used for the gesture
+// engine or the governor: some SDL builds stamp events with a
+// different clock epoch than SDL_GetTicks(), which breaks elapsed-time
+// arithmetic.  Handling-time SDL_GetTicks() is within a millisecond of
+// the event and uses the same clock as touch_gesture_tick().
+
+static void apply_touch_gesture_output(void)
+{
+	struct tg_output o = touch_gesture_poll();
+	// Wheel is a one-shot, not a held key: apply it even while the
+	// gesture layer owns no buttons.
+	if (o.wheel)
+		wheel_dir = o.wheel;
+	bool touch_active = o.lbutton || o.rbutton || o.control || o.lbutton_pulse || o.rbutton_pulse;
+	if (!touch_owns_buttons && !touch_active)
+		return;
+	key_state[VK_LBUTTON] = o.lbutton || o.lbutton_pulse;
+	key_state[VK_RBUTTON] = o.rbutton || o.rbutton_pulse;
+	key_state[VK_CONTROL] = o.control;
+	touch_owns_buttons = touch_active;
+}
+
+#endif // TOUCH_GESTURE_BUILD
 
 bool mouse_show_cursor(bool show)
 {
@@ -522,6 +653,9 @@ static void controller_axis_event(SDL_ControllerAxisEvent *e)
 
 static void controller_button_event(SDL_ControllerButtonEvent *e)
 {
+#ifdef TOUCH_GESTURE_BUILD
+	governor_mark_input(SDL_GetTicks());
+#endif
 	joybutton_state[e->button] = e->state == SDL_PRESSED;
 }
 
@@ -559,6 +693,15 @@ static void fire_deferred_events(void)
 {
 	uint32_t now = SDL_GetTicks();
 
+#ifdef TOUCH_GESTURE_BUILD
+	// Drive the touch gesture state machine and the power governor,
+	// then publish the gesture output to the System4 key state.
+	touch_gesture_tick(now);
+	apply_touch_gesture_output();
+	governor_tick(now);
+	gfx_flush_pending_present();
+#endif
+
 	// Flush the deferred mouse button event if it's older than 50ms.
 	if (deferred_synthetic_mouse_event.timestamp &&
 		deferred_synthetic_mouse_event.timestamp + SYNTHETIC_MOUSE_EVENT_DELAY < now) {
@@ -570,6 +713,25 @@ static void fire_deferred_events(void)
 		key_state[VK_LBUTTON] = false;
 		key_state[VK_CONTROL] = true;
 	}
+
+#ifdef __ANDROID__
+	// Power-save pacing: while the governor judges the scene static,
+	// sleep in small chunks until the next low-rate frame slot.  The
+	// chunks bound the input latency (a finger or key event arriving
+	// during the sleep is pumped within one chunk), while the VM's
+	// Peek/Update spin loop stops burning CPU at full speed.
+	if (governor_power_save() && touch_gesture_get_state() == TG_IDLE
+			&& STAILQ_EMPTY(&deferred_keyevent_queue)) {
+		for (int guard = 0; guard < 64; guard++) {
+			uint32_t remain = governor_ms_until_next_frame(SDL_GetTicks());
+			if (remain == 0)
+				break;
+			SDL_Delay(remain > 10 ? 10 : remain);
+			if (!governor_power_save())
+				break;
+		}
+	}
+#endif
 
 #ifdef __ANDROID__
 	// Fire the deferred keyboard and text input events.
@@ -612,6 +774,10 @@ static void handle_window_event(SDL_Event *e)
 		break;
 	case SDL_WINDOWEVENT_SIZE_CHANGED:
 		gfx_update_screen_scale();
+#ifdef TOUCH_GESTURE_BUILD
+		touch_gesture_ensure_init();
+		touch_gesture_sync_geometry();
+#endif
 		gfx_swap();
 		break;
 	}
@@ -649,6 +815,9 @@ void handle_events(void)
 			gfx_swap();
 			break;
 		case SDL_KEYDOWN:
+#ifdef TOUCH_GESTURE_BUILD
+			governor_mark_input(SDL_GetTicks());
+#endif
 			if (e.key.keysym.scancode == SDL_SCANCODE_F9) {
 				vm_stack_trace();
 			} else if (e.key.keysym.scancode == SDL_SCANCODE_F11) {
@@ -678,6 +847,14 @@ void handle_events(void)
 			break;
 		case SDL_MOUSEBUTTONUP:
 		case SDL_MOUSEBUTTONDOWN:
+#ifdef TOUCH_GESTURE_BUILD
+			// Mouse events synthesized from touches are superseded by the
+			// gesture engine; SDL still tracks the pointer position for
+			// mouse_get_pos().  Drop them completely (also skipping the
+			// legacy deferred-synthetic-click path below).
+			if (e.button.which == SDL_TOUCH_MOUSEID)
+				break;
+#endif
 			if (e.button.which == SDL_TOUCH_MOUSEID) {
 				if (deferred_synthetic_mouse_event.timestamp)
 					synthetic_mouse_event(&deferred_synthetic_mouse_event);
@@ -686,10 +863,23 @@ void handle_events(void)
 				mouse_event(&e.button);
 			}
 			break;
+		case SDL_MOUSEMOTION:
+#ifdef TOUCH_GESTURE_BUILD
+			// Physical (Bluetooth) mouse motion counts as activity.
+			if (e.motion.which != SDL_TOUCH_MOUSEID)
+				governor_mark_input(SDL_GetTicks());
+#endif
+			break;
 		case SDL_MOUSEWHEEL:
 			wheel_dir = e.wheel.y;
 			break;
 		case SDL_FINGERDOWN:
+#ifdef TOUCH_GESTURE_BUILD
+			touch_gesture_ensure_init();
+			governor_mark_input(SDL_GetTicks());
+			touch_gesture_finger_down(SDL_GetTicks(), e.tfinger.fingerId, e.tfinger.x, e.tfinger.y);
+			break;
+#endif
 			if (SDL_GetNumTouchFingers(e.tfinger.touchId) >= 2) {
 				// The user is about to start a multi-touch gesture.
 				key_state[VK_LBUTTON] = false;
@@ -710,6 +900,11 @@ void handle_events(void)
 			};
 			break;
 		case SDL_FINGERMOTION:
+#ifdef TOUCH_GESTURE_BUILD
+			governor_mark_input(SDL_GetTicks());
+			touch_gesture_finger_motion(SDL_GetTicks(), e.tfinger.fingerId, e.tfinger.x, e.tfinger.y);
+			break;
+#endif
 			if (SDL_PointInFRect(&(SDL_FPoint){ e.tfinger.x, e.tfinger.y }, &long_touch_finger_rect))
 				break;
 			// Cancel the timer only if Ctrl emulation has not already started.
@@ -717,10 +912,21 @@ void handle_events(void)
 				long_touch_start_timestamp = 0;
 			break;
 		case SDL_FINGERUP:
+#ifdef TOUCH_GESTURE_BUILD
+			governor_mark_input(SDL_GetTicks());
+			touch_gesture_finger_up(SDL_GetTicks(), e.tfinger.fingerId, e.tfinger.x, e.tfinger.y);
+			break;
+#endif
 			long_touch_start_timestamp = 0;
 			key_state[VK_CONTROL] = false;
 			break;
 		case SDL_MULTIGESTURE:
+#ifdef TOUCH_GESTURE_BUILD
+			// Two-finger gestures are decoded from raw finger events by
+			// the gesture engine; the legacy scroll emulation here would
+			// double-count the wheel motion.
+			break;
+#endif
 			if (e.mgesture.numFingers == 2) {
 				if (scroll_gesture_y < 0.0f)
 					scroll_gesture_y = e.mgesture.y;

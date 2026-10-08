@@ -40,6 +40,9 @@
 #include "gfx/gfx.h"
 #include "gfx/font.h"
 #include "vm.h"
+#ifdef __ANDROID__
+#include "governor.h"
+#endif
 
 #include "version.h"
 
@@ -606,5 +609,11 @@ int main(int argc, char *argv[])
 		set_msgskip_delay(ain, config.msgskip_delay);
 	asset_manager_init();
 	dbg_init(debug_info_path);
+#ifdef __ANDROID__
+	// Power governor: frame pacing/present gating on mobile.  Connected
+	// at gfx_swap() (render gate), fire_deferred_events() (idle pacing)
+	// and the input paths (wake-up).  See include/governor.h.
+	governor_init(NULL);
+#endif
 	sys_exit(vm_execute_ain(ain));
 }

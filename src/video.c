@@ -31,6 +31,9 @@
 #include "gfx/private.h"
 #include "icon.h"
 #include "xsystem4.h"
+#ifdef __ANDROID__
+#include "governor.h"
+#endif
 
 struct sdl_private sdl;
 
@@ -421,7 +424,17 @@ static void gfx_update_frame_rate_counter(void)
 	}
 }
 
-void gfx_swap(void)
+#ifdef __ANDROID__
+// Power governor present deferral: while the scene is judged static
+// (GOV_POWER_SAVE), gfx_swap() drops most swap requests and latches one
+// pending present instead; gfx_flush_pending_present() (called from the
+// input pump) presents it when the low-rate frame slot is due.  A swap
+// request in power-save mode also wakes the governor: something is
+// animating, so the full frame rate resumes.
+static bool gfx_pending_present;
+#endif
+
+static void gfx_present_frame(void)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(sdl.viewport.x, sdl.viewport.y, sdl.viewport.w, sdl.viewport.h);
@@ -447,6 +460,29 @@ void gfx_swap(void)
 	glViewport(0, 0, sdl.w, sdl.h);
 
 	gfx_update_frame_rate_counter();
+}
+
+void gfx_swap(void)
+{
+#ifdef __ANDROID__
+	governor_note_render_request(SDL_GetTicks());
+	if (governor_power_save() && !governor_should_render(SDL_GetTicks())) {
+		gfx_pending_present = true; // presented later, at most 100 ms
+		return;
+	}
+	gfx_pending_present = false;
+#endif
+	gfx_present_frame();
+}
+
+void gfx_flush_pending_present(void)
+{
+#ifdef __ANDROID__
+	if (gfx_pending_present && governor_should_render(SDL_GetTicks())) {
+		gfx_pending_present = false;
+		gfx_present_frame();
+	}
+#endif
 }
 
 void gfx_set_view(struct texture *t)
