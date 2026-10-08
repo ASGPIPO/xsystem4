@@ -2117,16 +2117,13 @@ static void ctrl_stack_init(void)
 // Adds a new controller to the stack and makes it active. The `index`
 // parameter specifies the position in the stack at which to insert the new
 // controller; -1 means "insert directly after the currently active
-// controller". In practice the game only ever passes -1, and the active
-// controller is always the top of the stack at that point, so this
-// degenerates to a simple push.
+// controller". Rance03 AddTopLayer explicitly passes the current top ID.
+// Insertion below the top would require stable IDs and is not supported.
 int PE_AddController(int index)
 {
-	if (index != -1)
-		VM_ERROR("index != -1 not supported (got %d)", index);
-	if (ctrl_stack.nr_controllers > 0 &&
-			ctrl_stack.active != ctrl_stack.nr_controllers - 1)
-		VM_ERROR("active controller is not at the top of the stack");
+	int after = index == -1 ? ctrl_stack.active : index;
+	if (ctrl_stack.nr_controllers > 0 && after != ctrl_stack.nr_controllers - 1)
+		VM_ERROR("insertion below the top controller is not supported (got %d)", index);
 	if (ctrl_stack.nr_controllers >= PARTS_CONTROLLER_STACK_MAX)
 		VM_ERROR("controller stack overflow");
 
@@ -2138,18 +2135,14 @@ int PE_AddController(int index)
 // Removes the controller at position `index` from the stack, releases all
 // parts belonging to it, and returns their parts numbers in
 // `erase_number_list`. `index == -1` means "remove the currently active
-// controller". In practice the game only ever passes -1, and the active
-// controller is always the top of the stack at that point, so this
-// degenerates to a simple pop.
+// controller". Rance03 resolves -1 to the explicit active ID before calling.
+// Removal below the top is not supported because IDs are stack indices.
 void PE_RemoveController(struct page **erase_number_list, int index)
 {
-	if (index != -1)
-		VM_ERROR("index != -1 not supported (got %d)", index);
+	int ctrl_no = index == -1 ? ctrl_stack.active : index;
 	if (ctrl_stack.nr_controllers == 0 ||
-			ctrl_stack.active != ctrl_stack.nr_controllers - 1)
-		VM_ERROR("active controller is not at the top of the stack");
-
-	int ctrl_no = ctrl_stack.active;
+			ctrl_no != ctrl_stack.nr_controllers - 1 || ctrl_no != ctrl_stack.active)
+		VM_ERROR("removal requires the active top controller (got %d)", index);
 
 	// Collect and release parts belonging to this controller
 	struct parts *p = TAILQ_FIRST(&parts_list);
