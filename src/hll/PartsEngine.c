@@ -548,6 +548,7 @@ HLL_LIBRARY(PartsEngine,
 	    HLL_EXPORT(SetThumbnailReductionSize, PE_SetThumbnailReductionSize),
 	    HLL_EXPORT(SetThumbnailMode, PE_SetThumbnailMode),
 	    HLL_EXPORT(Save, PE_Save),
+	    HLL_EXPORT(SaveBackScene, PE_SaveBackScene),
 	    HLL_EXPORT(SaveWithoutHideParts, PE_SaveWithoutHideParts),
 	    HLL_EXPORT(Load, PE_Load),
 	    // Rance 9

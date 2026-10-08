@@ -711,7 +711,7 @@ static void load_numeral_fonts(struct iarray_reader *r)
 	}
 }
 
-static bool parts_engine_save(struct page **buffer, bool save_hidden)
+static bool parts_engine_save(struct page **buffer, bool save_hidden, bool back_scene)
 {
 	// get parts into clean state first
 	PE_UpdateComponent(0);
@@ -735,6 +735,8 @@ static bool parts_engine_save(struct page **buffer, bool save_hidden)
 			continue;
 		if (!parts->want_save)
 			continue;
+		if (back_scene && !parts->want_save_back_scene)
+			continue;
 		save_parts(&w, parts);
 		count++;
 	}
@@ -753,12 +755,17 @@ static bool parts_engine_save(struct page **buffer, bool save_hidden)
 
 bool PE_SaveWithoutHideParts(struct page **buffer)
 {
-	return parts_engine_save(buffer, false);
+	return parts_engine_save(buffer, false, false);
 }
 
 bool PE_Save(struct page **buffer)
 {
-	return parts_engine_save(buffer, true);
+	return parts_engine_save(buffer, true, false);
+}
+
+bool PE_SaveBackScene(struct page **buffer)
+{
+	return parts_engine_save(buffer, true, true);
 }
 
 bool PE_Load(struct page **buffer)
