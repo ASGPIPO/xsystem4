@@ -387,6 +387,8 @@ HLL_LIBRARY(PartsEngine,
 	    // FIXME: what is the difference?
 	    HLL_EXPORT(GetFreeSystemPartsNumberNotSaved, PE_GetFreeNumber),
 	    HLL_EXPORT(IsExistParts, PE_IsExist),
+	    HLL_EXPORT(SetWantSaveBackScene, PE_SetWantSaveBackScene),
+	    HLL_EXPORT(IsWantSaveBackScene, PE_IsWantSaveBackScene),
 	    HLL_EXPORT(SetPartsCG, PE_SetPartsCG),
 	    HLL_EXPORT(GetPartsCGName, PE_GetPartsCGName),
 	    HLL_EXPORT(SetPartsCGSurfaceArea, PE_SetPartsCGSurfaceArea),

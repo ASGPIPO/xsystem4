@@ -65,6 +65,7 @@ static void parts_init(struct parts *parts)
 	parts->global = PARTS_PARAMS_INITIALIZER(1);
 	parts->delegate_index = -1;
 	parts->want_save = true;
+	parts->want_save_back_scene = true;
 	parts->on_cursor_sound = -1;
 	parts->on_click_sound = -1;
 	parts->origin_mode = 1;
@@ -2192,6 +2193,16 @@ int PE_get_system_controller(void)
 int PE_get_nr_controllers(void)
 {
 	return ctrl_stack.nr_controllers;
+}
+
+void PE_SetWantSaveBackScene(int parts_no, bool enable)
+{
+	parts_get(parts_no)->want_save_back_scene = enable;
+}
+
+bool PE_IsWantSaveBackScene(int parts_no)
+{
+	return parts_get(parts_no)->want_save_back_scene;
 }
 
 void PE_parts_set_want_save(int parts_no, bool want_save)
