@@ -372,6 +372,12 @@ static int PartsEngine_PartsFunc(int func_id, struct page **array_int,
 
 HLL_WARN_UNIMPLEMENTED(, void, PartsEngine, StopSoundWithoutSystemSound);
 
+// This implementation identifies a controller by its stack index.
+static int PartsEngine_ControllerIndex(int controller_no)
+{
+	return controller_no;
+}
+
 static void PartsEngine_PreLink(void);
 
 HLL_LIBRARY(PartsEngine,
@@ -553,6 +559,12 @@ HLL_LIBRARY(PartsEngine,
 	    HLL_EXPORT(IsExist, PE_IsExist),
 	    HLL_EXPORT(AddController, PE_AddController),
 	    HLL_EXPORT(RemoveController, PE_RemoveController),
+	    HLL_EXPORT(SetActiveController, PE_set_active_controller),
+	    HLL_EXPORT(GetActiveController, PE_get_active_controller),
+	    HLL_EXPORT(GetControllerIndex, PartsEngine_ControllerIndex),
+	    HLL_EXPORT(GetControllerID, PartsEngine_ControllerIndex),
+	    HLL_EXPORT(GetControllerLength, PE_get_nr_controllers),
+	    HLL_EXPORT(GetSystemOverlayController, PE_get_system_controller),
 	    HLL_EXPORT(UpdateComponent, PartsEngine_Update),
 	    HLL_EXPORT(Parts_SetThumbnailReductionSize, PE_SetThumbnailReductionSize),
 	    HLL_EXPORT(Parts_SetThumbnailMode, PE_SetThumbnailMode),
