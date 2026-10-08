@@ -113,6 +113,7 @@ target_sources(xsystem4 PRIVATE
 
   src/hll/ACXLoader.c
   src/hll/ADVSYS.c
+  src/hll/ADVEngine.c
   src/hll/AFAFactory.c
   src/hll/AliceLogo.c
   src/hll/AliceLogo2.c
@@ -127,6 +128,7 @@ target_sources(xsystem4 PRIVATE
   src/hll/CGManager.c
   src/hll/CharSpriteManager.c
   src/hll/ChipmunkSpriteEngine.c
+  src/hll/Clipboard.c
   src/hll/ChrLoader.c
   src/hll/CommonSystemData.c
   src/hll/Confirm.c
@@ -151,6 +153,7 @@ target_sources(xsystem4 PRIVATE
   src/hll/DrawSnow.c
   src/hll/File.c
   src/hll/File2.c
+  src/hll/FileDialog.c
   src/hll/FileOperation.c
   src/hll/FillAngle.c
   src/hll/GoatGUIEngine.c
@@ -161,6 +164,7 @@ target_sources(xsystem4 PRIVATE
   src/hll/IbisInputEngine.c
   src/hll/InputDevice.c
   src/hll/InputString.c
+  src/hll/InstallInfo.c
   src/hll/KiwiSoundEngine.c
   src/hll/LoadCG.c
   src/hll/MADLoader.c
@@ -195,7 +199,9 @@ target_sources(xsystem4 PRIVATE
   src/hll/StoatSpriteEngine.c
   src/hll/StretchHelper.c
   src/hll/SystemService.c
+  src/hll/Sys43VM.c
   src/hll/SystemServiceEx.c
+  src/hll/TextFile.c
   src/hll/Timer.c
   src/hll/Toushin3Loader.c
   src/hll/vmAnime.c

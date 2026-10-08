@@ -417,6 +417,7 @@ void hll_call(int libno, int fno)
 extern struct static_library lib_ACXLoader;
 extern struct static_library lib_ACXLoaderP2;
 extern struct static_library lib_ADVSYS;
+extern struct static_library lib_ADVEngine;
 extern struct static_library lib_AFAFactory;
 extern struct static_library lib_AliceLogo;
 extern struct static_library lib_AliceLogo2;
@@ -430,6 +431,7 @@ extern struct static_library lib_Bitarray;
 extern struct static_library lib_CalcTable;
 extern struct static_library lib_CGManager;
 extern struct static_library lib_ChipmunkSpriteEngine;
+extern struct static_library lib_Clipboard;
 extern struct static_library lib_ChrLoader;
 extern struct static_library lib_CommonSystemData;
 extern struct static_library lib_Confirm;
@@ -459,6 +461,7 @@ extern struct static_library lib_DrawSimpleText;
 extern struct static_library lib_DrawSnow;
 extern struct static_library lib_File;
 extern struct static_library lib_File2;
+extern struct static_library lib_FileDialog;
 extern struct static_library lib_FileOperation;
 extern struct static_library lib_FillAngle;
 extern struct static_library lib_GoatGUIEngine;
@@ -468,6 +471,7 @@ extern struct static_library lib_HTTPDownloader;
 extern struct static_library lib_IbisInputEngine;
 extern struct static_library lib_InputDevice;
 extern struct static_library lib_InputString;
+extern struct static_library lib_InstallInfo;
 extern struct static_library lib_KiwiSoundEngine;
 extern struct static_library lib_LoadCG;
 extern struct static_library lib_MADLoader;
@@ -503,8 +507,10 @@ extern struct static_library lib_Sound2ex;
 extern struct static_library lib_SoundFilePlayer;
 extern struct static_library lib_StoatSpriteEngine;
 extern struct static_library lib_StretchHelper;
+extern struct static_library lib_Sys43VM;
 extern struct static_library lib_SystemService;
 extern struct static_library lib_SystemServiceEx;
+extern struct static_library lib_TextFile;
 extern struct static_library lib_TapirEngine;
 extern struct static_library lib_Timer;
 extern struct static_library lib_Toushin3Loader;
@@ -540,6 +546,7 @@ static struct static_library *static_libraries[] = {
 	&lib_ACXLoader,
 	&lib_ACXLoaderP2,
 	&lib_ADVSYS,
+	&lib_ADVEngine,
 	&lib_AFAFactory,
 	&lib_AliceLogo,
 	&lib_AliceLogo2,
@@ -553,6 +560,7 @@ static struct static_library *static_libraries[] = {
 	&lib_CalcTable,
 	&lib_CGManager,
 	&lib_ChipmunkSpriteEngine,
+	&lib_Clipboard,
 	&lib_ChrLoader,
 	&lib_CommonSystemData,
 	&lib_Confirm,
@@ -582,6 +590,7 @@ static struct static_library *static_libraries[] = {
 	&lib_DrawSnow,
 	&lib_File,
 	&lib_File2,
+	&lib_FileDialog,
 	&lib_FileOperation,
 	&lib_FillAngle,
 	&lib_GoatGUIEngine,
@@ -591,6 +600,7 @@ static struct static_library *static_libraries[] = {
 	&lib_IbisInputEngine,
 	&lib_InputDevice,
 	&lib_InputString,
+	&lib_InstallInfo,
 	&lib_KiwiSoundEngine,
 	&lib_LoadCG,
 	&lib_MADLoader,
@@ -626,8 +636,10 @@ static struct static_library *static_libraries[] = {
 	&lib_SoundFilePlayer,
 	&lib_StoatSpriteEngine,
 	&lib_StretchHelper,
+	&lib_Sys43VM,
 	&lib_SystemService,
 	&lib_SystemServiceEx,
+	&lib_TextFile,
 	&lib_TapirEngine,
 	&lib_Timer,
 	&lib_Toushin3Loader,
