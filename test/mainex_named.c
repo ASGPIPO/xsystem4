@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <ffi.h>
 #include "system4/ain.h"
+#include "system4/instructions.h"
+#include "system4/little_endian.h"
 #include "../src/hll/MainEXFile.c"
 
 struct config config;
@@ -60,6 +62,41 @@ static void *selector(struct string **name, int *handle)
 	return legacy ? (void *)handle : (void *)name;
 }
 
+/* Decode the real script wrapper's argument loads before its CALLHLL.
+ * HLL0 labels claim Col,Row, but EX_A2String emits Name,LineY,LineX,Data. */
+static void script_a2string_order(int order[4])
+{
+	int fno = ain_get_function(ain, "EX_A2String");
+	assert(fno >= 0);
+	initialize_instructions(ain->version);
+	unsigned p = ain->functions[fno].address;
+	int hll_fno = ain_get_library_function(ain, libno, "A2String");
+	int loads[16], nr_loads = 0;
+	while (p + 12 <= ain->code_size) {
+		int op = LittleEndian_getW(ain->code, p);
+		assert(op < NR_OPCODES);
+		if (op == CALLHLL && LittleEndian_getDW(ain->code, p + 2) == libno
+				&& LittleEndian_getDW(ain->code, p + 6) == hll_fno) {
+			assert(nr_loads >= 4);
+			for (int i = 0; i < 4; i++)
+				order[i] = loads[nr_loads - 4 + i];
+			assert(order[0] == 0 && order[1] == 2
+					&& order[2] == 1 && order[3] == 4);
+			puts("PASS real EX_A2String bytecode emits Name,LineY(row),LineX(col),Data");
+			fflush(stdout);
+			return;
+		}
+		if (op == PUSHLOCALPAGE && LittleEndian_getW(ain->code, p + 2) == PUSH
+				&& (LittleEndian_getW(ain->code, p + 8) == REF
+					|| LittleEndian_getW(ain->code, p + 8) == S_REF)) {
+			assert(nr_loads < 16);
+			loads[nr_loads++] = LittleEndian_getDW(ain->code, p + 4);
+		}
+		p += instruction_width(op);
+	}
+	assert(0);
+}
+
 int main(int argc, char **argv)
 {
 	assert(argc == 5);
@@ -113,18 +150,23 @@ int main(int argc, char **argv)
 	assert(invoke("Type", args) == EX_TABLE);
 	assert(invoke("Exists", args));
 
-	/* Read every player ID, using the script's (column, row) ordering.
-	 * Legacy exports keep their original (row, column) ordering. */
+	/* Evaluate the script wrapper's actual argument loads. Expected IDs come
+	 * from each real row, independently of the C adapter's coordinates. */
+	int order[4];
+	script_a2string_order(order);
 	for (int row = 0; row < rows; row++) {
 		int col = 0;
 		struct string *out = NULL;
 		struct string **ref = &out;
-		args[1] = legacy ? (void *)&row : (void *)&col;
-		args[2] = legacy ? (void *)&col : (void *)&row;
-		args[3] = &ref;
+		void *locals[] = { selector(&name, &handle), &col, &row, NULL, &ref };
+		for (int i = 0; i < 4; i++)
+			args[i] = locals[order[i]];
 		assert(invoke("A2Type", args) == table->rows[row][col].type);
 		assert(invoke("A2Exists", args));
 		assert(invoke("A2String", args));
+		if (strcmp(out->text, table->rows[row][col].s->text))
+			fprintf(stderr, "script route row=%d col=%d expected ID=[%s] actual=[%s]\n",
+					row, col, table->rows[row][col].s->text, out->text);
 		assert(!strcmp(out->text, table->rows[row][col].s->text));
 		free_string(out);
 	}
@@ -134,8 +176,8 @@ int main(int argc, char **argv)
 	for (unsigned row = 0; row < table->nr_rows; row++) {
 		for (unsigned col = 0; col < table->nr_columns; col++) {
 			struct ex_value *v = &table->rows[row][col];
-			args[1] = legacy ? (void *)&row : (void *)&col;
-			args[2] = legacy ? (void *)&col : (void *)&row;
+			args[1] = &row;
+			args[2] = &col;
 			if (v->type == EX_INT) {
 				int out = -1;
 				int *ref = &out;
@@ -155,6 +197,40 @@ int main(int argc, char **argv)
 	}
 	assert(numeric_cells > 0);
 	printf("PASS %s %d real numeric cells\n", argv[1], numeric_cells);
+
+	/* Reproduce Player@loadParam's keyed skill lookup and loadZeroThreeSkill's
+	 * positional ID read. Every player skill must resolve to the real table. */
+	struct string *skill_name = ain->strings[1838];
+	struct ex_table *skills = ex_get_table(ex, skill_name->text);
+	struct string *format = cstr_to_string("zeroThreeSkillId");
+	int skill_col = ex_col_from_name(table, format->text);
+	assert(skill_col >= 0 && skills);
+	for (unsigned row = 0; row < table->nr_rows; row++) {
+		struct string *id = table->rows[row][0].s;
+		struct string *out = NULL;
+		struct string **ref = &out;
+		args[0] = selector(&name, &handle);
+		args[1] = &id;
+		args[2] = &format;
+		args[3] = &ref;
+		assert(invoke("SA2String", args));
+		assert(table->rows[row][skill_col].type == EX_STRING);
+		assert(!strcmp(out->text, table->rows[row][skill_col].s->text));
+		int skill_row = ex_row_at_string_key(skills, out->text);
+		assert(skill_row >= 0);
+		free_string(out);
+		out = NULL;
+		int col = 0;
+		void *locals[] = { selector(&skill_name, &handle),
+				&col, &skill_row, NULL, &ref };
+		for (int i = 0; i < 4; i++)
+			args[i] = locals[order[i]];
+		assert(invoke("A2String", args));
+		assert(!strcmp(out->text, skills->rows[skill_row][0].s->text));
+		free_string(out);
+	}
+	free_string(format);
+	printf("PASS %s all 23 player skill references resolve through script-order skill IDs\n", argv[1]);
 
 	/* Every selector export must safely reject an unknown table/value name. */
 	struct string *missing = cstr_to_string("__missing_MainEX_value__");

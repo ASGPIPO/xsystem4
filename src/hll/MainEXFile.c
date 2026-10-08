@@ -661,8 +661,9 @@ static bool MainEXFile_GetEXName(struct string *tree_path, int index, struct str
 	return false;
 }
 
-/* Later games select values by name instead of handle. Their A2 APIs also
- * take column before row; the original handle APIs retain row before column. */
+/* Later games select values by name instead of handle. Both ABIs take row
+ * before column: EX_A2String already swaps LineX/LineY before CALLHLL, despite
+ * the newer HLL metadata labeling these parameters Col/Row. */
 #define NAMED_WRAPPER(rtype, fname, parameters, arguments) \
 	static rtype MainEXFile_ ## fname ## _by_name parameters { \
 		return MainEXFile_ ## fname arguments; \
@@ -681,7 +682,7 @@ NAMED_WRAPPER(int, AType,
 	(struct string *name, int index),
 	(MainEXFile_Handle(name), index));
 NAMED_WRAPPER(int, A2Type,
-	(struct string *name, int col, int row),
+	(struct string *name, int row, int col),
 	(MainEXFile_Handle(name), row, col));
 NAMED_WRAPPER(int, IA2Type,
 	(struct string *name, int key, struct string *format_name),
@@ -699,7 +700,7 @@ NAMED_WRAPPER(bool, AExists,
 	(struct string *name, int index),
 	(MainEXFile_Handle(name), index));
 NAMED_WRAPPER(bool, A2Exists,
-	(struct string *name, int col, int row),
+	(struct string *name, int row, int col),
 	(MainEXFile_Handle(name), row, col));
 NAMED_WRAPPER(bool, IA2Exists,
 	(struct string *name, int key, struct string *format_name),
@@ -729,13 +730,13 @@ NAMED_WRAPPER(bool, AString,
 	(struct string *name, int index, struct string **data),
 	(MainEXFile_Handle(name), index, data));
 NAMED_WRAPPER(bool, A2Int,
-	(struct string *name, int col, int row, int *data),
+	(struct string *name, int row, int col, int *data),
 	(MainEXFile_Handle(name), row, col, data));
 NAMED_WRAPPER(bool, A2Float,
-	(struct string *name, int col, int row, float *data),
+	(struct string *name, int row, int col, float *data),
 	(MainEXFile_Handle(name), row, col, data));
 NAMED_WRAPPER(bool, A2String,
-	(struct string *name, int col, int row, struct string **data),
+	(struct string *name, int row, int col, struct string **data),
 	(MainEXFile_Handle(name), row, col, data));
 NAMED_WRAPPER(int, GetRowAtIntKey,
 	(struct string *name, int key),
