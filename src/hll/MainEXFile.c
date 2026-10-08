@@ -16,6 +16,7 @@
 
 #include <string.h>
 
+#include "system4/ain.h"
 #include "system4/ex.h"
 #include "system4/string.h"
 
@@ -24,10 +25,7 @@
 
 #include "system4/utfsjis.h"
 
-// TODO: Later versions of this library have a different interface, but use the
-//       same function names. Will need to handle this somehow...
-//       Probably best to have separate implementations and choose the correct
-//       one at startup.
+static void MainEXFile_PreLink(void);
 
 static struct ex *ex;
 static struct ex_value **handles = NULL;
@@ -663,7 +661,120 @@ static bool MainEXFile_GetEXName(struct string *tree_path, int index, struct str
 	return false;
 }
 
+/* Later games select values by name instead of handle. Their A2 APIs also
+ * take column before row; the original handle APIs retain row before column. */
+#define NAMED_WRAPPER(rtype, fname, parameters, arguments) \
+	static rtype MainEXFile_ ## fname ## _by_name parameters { \
+		return MainEXFile_ ## fname arguments; \
+	}
+
+NAMED_WRAPPER(int, Row,
+	(struct string *name),
+	(MainEXFile_Handle(name)));
+NAMED_WRAPPER(int, Col,
+	(struct string *name),
+	(MainEXFile_Handle(name)));
+NAMED_WRAPPER(int, Type,
+	(struct string *name),
+	(MainEXFile_Handle(name)));
+NAMED_WRAPPER(int, AType,
+	(struct string *name, int index),
+	(MainEXFile_Handle(name), index));
+NAMED_WRAPPER(int, A2Type,
+	(struct string *name, int col, int row),
+	(MainEXFile_Handle(name), row, col));
+NAMED_WRAPPER(int, IA2Type,
+	(struct string *name, int key, struct string *format_name),
+	(MainEXFile_Handle(name), key, format_name));
+NAMED_WRAPPER(int, SA2Type,
+	(struct string *name, struct string *key, struct string *format_name),
+	(MainEXFile_Handle(name), key, format_name));
+NAMED_WRAPPER(int, RA2Type,
+	(struct string *name, int row, struct string *format_name),
+	(MainEXFile_Handle(name), row, format_name));
+NAMED_WRAPPER(bool, Exists,
+	(struct string *name),
+	(MainEXFile_Handle(name)));
+NAMED_WRAPPER(bool, AExists,
+	(struct string *name, int index),
+	(MainEXFile_Handle(name), index));
+NAMED_WRAPPER(bool, A2Exists,
+	(struct string *name, int col, int row),
+	(MainEXFile_Handle(name), row, col));
+NAMED_WRAPPER(bool, IA2Exists,
+	(struct string *name, int key, struct string *format_name),
+	(MainEXFile_Handle(name), key, format_name));
+NAMED_WRAPPER(bool, SA2Exists,
+	(struct string *name, struct string *key, struct string *format_name),
+	(MainEXFile_Handle(name), key, format_name));
+NAMED_WRAPPER(bool, RA2Exists,
+	(struct string *name, int row, struct string *format_name),
+	(MainEXFile_Handle(name), row, format_name));
+NAMED_WRAPPER(bool, Int,
+	(struct string *name, int *data),
+	(MainEXFile_Handle(name), data));
+NAMED_WRAPPER(bool, Float,
+	(struct string *name, float *data),
+	(MainEXFile_Handle(name), data));
+NAMED_WRAPPER(bool, String,
+	(struct string *name, struct string **data),
+	(MainEXFile_Handle(name), data));
+NAMED_WRAPPER(bool, AInt,
+	(struct string *name, int index, int *data),
+	(MainEXFile_Handle(name), index, data));
+NAMED_WRAPPER(bool, AFloat,
+	(struct string *name, int index, float *data),
+	(MainEXFile_Handle(name), index, data));
+NAMED_WRAPPER(bool, AString,
+	(struct string *name, int index, struct string **data),
+	(MainEXFile_Handle(name), index, data));
+NAMED_WRAPPER(bool, A2Int,
+	(struct string *name, int col, int row, int *data),
+	(MainEXFile_Handle(name), row, col, data));
+NAMED_WRAPPER(bool, A2Float,
+	(struct string *name, int col, int row, float *data),
+	(MainEXFile_Handle(name), row, col, data));
+NAMED_WRAPPER(bool, A2String,
+	(struct string *name, int col, int row, struct string **data),
+	(MainEXFile_Handle(name), row, col, data));
+NAMED_WRAPPER(int, GetRowAtIntKey,
+	(struct string *name, int key),
+	(MainEXFile_Handle(name), key));
+NAMED_WRAPPER(int, GetRowAtStringKey,
+	(struct string *name, struct string *key),
+	(MainEXFile_Handle(name), key));
+NAMED_WRAPPER(bool, IA2Int,
+	(struct string *name, int key, struct string *format_name, int *data),
+	(MainEXFile_Handle(name), key, format_name, data));
+NAMED_WRAPPER(bool, IA2Float,
+	(struct string *name, int key, struct string *format_name, float *data),
+	(MainEXFile_Handle(name), key, format_name, data));
+NAMED_WRAPPER(bool, IA2String,
+	(struct string *name, int key, struct string *format_name, struct string **data),
+	(MainEXFile_Handle(name), key, format_name, data));
+NAMED_WRAPPER(bool, SA2Int,
+	(struct string *name, struct string *key, struct string *format_name, int *data),
+	(MainEXFile_Handle(name), key, format_name, data));
+NAMED_WRAPPER(bool, SA2Float,
+	(struct string *name, struct string *key, struct string *format_name, float *data),
+	(MainEXFile_Handle(name), key, format_name, data));
+NAMED_WRAPPER(bool, SA2String,
+	(struct string *name, struct string *key, struct string *format_name, struct string **data),
+	(MainEXFile_Handle(name), key, format_name, data));
+NAMED_WRAPPER(bool, RA2Int,
+	(struct string *name, int row, struct string *format_name, int *data),
+	(MainEXFile_Handle(name), row, format_name, data));
+NAMED_WRAPPER(bool, RA2Float,
+	(struct string *name, int row, struct string *format_name, float *data),
+	(MainEXFile_Handle(name), row, format_name, data));
+NAMED_WRAPPER(bool, RA2String,
+	(struct string *name, int row, struct string *format_name, struct string **data),
+	(MainEXFile_Handle(name), row, format_name, data));
+
+#undef NAMED_WRAPPER
+
 HLL_LIBRARY(MainEXFile,
+	    HLL_EXPORT(_PreLink, MainEXFile_PreLink),
 	    HLL_EXPORT(_ModuleInit, MainEXFile_ModuleInit),
 	    HLL_EXPORT(_ModuleFini, MainEXFile_ModuleFini),
 	    HLL_EXPORT(ReloadDebugEXFile, MainEXFile_ReloadDebugEXFile),
@@ -711,3 +822,61 @@ HLL_LIBRARY(MainEXFile,
 	    HLL_EXPORT(GetEXNameCount, MainEXFile_GetEXNameCount),
 	    HLL_EXPORT(GetNodeName, MainEXFile_GetNodeName),
 	    HLL_EXPORT(GetEXName, MainEXFile_GetEXName));
+
+
+static void MainEXFile_PreLink(void)
+{
+	int libno = ain_get_library(ain, "MainEXFile");
+	if (libno < 0)
+		return;
+	static const struct {
+		const char *name;
+		void *fun;
+	} named_functions[] = {
+		{ "Row", MainEXFile_Row_by_name },
+		{ "Col", MainEXFile_Col_by_name },
+		{ "Type", MainEXFile_Type_by_name },
+		{ "AType", MainEXFile_AType_by_name },
+		{ "A2Type", MainEXFile_A2Type_by_name },
+		{ "IA2Type", MainEXFile_IA2Type_by_name },
+		{ "SA2Type", MainEXFile_SA2Type_by_name },
+		{ "RA2Type", MainEXFile_RA2Type_by_name },
+		{ "Exists", MainEXFile_Exists_by_name },
+		{ "AExists", MainEXFile_AExists_by_name },
+		{ "A2Exists", MainEXFile_A2Exists_by_name },
+		{ "IA2Exists", MainEXFile_IA2Exists_by_name },
+		{ "SA2Exists", MainEXFile_SA2Exists_by_name },
+		{ "RA2Exists", MainEXFile_RA2Exists_by_name },
+		{ "Int", MainEXFile_Int_by_name },
+		{ "Float", MainEXFile_Float_by_name },
+		{ "String", MainEXFile_String_by_name },
+		{ "AInt", MainEXFile_AInt_by_name },
+		{ "AFloat", MainEXFile_AFloat_by_name },
+		{ "AString", MainEXFile_AString_by_name },
+		{ "A2Int", MainEXFile_A2Int_by_name },
+		{ "A2Float", MainEXFile_A2Float_by_name },
+		{ "A2String", MainEXFile_A2String_by_name },
+		{ "GetRowAtIntKey", MainEXFile_GetRowAtIntKey_by_name },
+		{ "GetRowAtStringKey", MainEXFile_GetRowAtStringKey_by_name },
+		{ "IA2Int", MainEXFile_IA2Int_by_name },
+		{ "IA2Float", MainEXFile_IA2Float_by_name },
+		{ "IA2String", MainEXFile_IA2String_by_name },
+		{ "SA2Int", MainEXFile_SA2Int_by_name },
+		{ "SA2Float", MainEXFile_SA2Float_by_name },
+		{ "SA2String", MainEXFile_SA2String_by_name },
+		{ "RA2Int", MainEXFile_RA2Int_by_name },
+		{ "RA2Float", MainEXFile_RA2Float_by_name },
+		{ "RA2String", MainEXFile_RA2String_by_name },
+	};
+
+	for (unsigned i = 0; i < sizeof(named_functions) / sizeof(named_functions[0]); i++) {
+		int fno = ain_get_library_function(ain, libno, named_functions[i].name);
+		if (fno < 0)
+			continue;
+		struct ain_hll_function *f = &ain->libraries[libno].functions[fno];
+		if (f->nr_arguments > 0 && f->arguments[0].type.data == AIN_STRING) {
+			static_library_replace(&lib_MainEXFile,
+					named_functions[i].name, named_functions[i].fun);
+		}
+	}
+}
