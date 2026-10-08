@@ -65,6 +65,9 @@ struct channel {
 
 	// stream data
 	atomic_int voice;
+	atomic_bool paused;
+	float paused_position;
+	bool stream_ended;
 	sts_mixer_stream_t stream;
 	float data[CHUNK_SIZE * 2];
 
@@ -133,7 +136,7 @@ static bool cb_seek(struct channel *ch, uint_least32_t pos)
  */
 static bool cb_loop(struct channel *ch)
 {
-	if (!cb_seek(ch, ch->loop_start) || ch->loop_count == 1) {
+	if (ch->loop_count == 1 || !cb_seek(ch, ch->loop_start)) {
 		return false;
 	}
 	if (ch->loop_count > 1) {
@@ -149,45 +152,20 @@ static bool cb_loop(struct channel *ch)
 static int cb_read_frames(struct channel *ch, float *out, sf_count_t frame_count, uint_least32_t *num_read)
 {
 	*num_read = 0;
-
-	// handle case where chunk crosses loop point (seamless)
-	// NOTE: it's assumed that the length of the loop is greater than the chunk length
-	if (ch->frame + frame_count >= ch->loop_end) {
-		// read frames up to loop_end
-		*num_read = sf_readf_float(ch->file, out, ch->loop_end - ch->frame);
-		// adjust parameters for later
-		ch->frame += *num_read;
-		out += *num_read;
-		frame_count -= *num_read;
-		// seek to loop_start
-		if (!cb_loop(ch))
+	while (frame_count > 0) {
+		if (ch->frame >= ch->loop_end && !cb_loop(ch))
 			return STS_STREAM_COMPLETE;
-	} else if (ch->frame >= ch->loop_end) {
-		// seek to loop_start
-		if (!cb_loop(ch))
+		sf_count_t requested = min(frame_count, ch->loop_end - ch->frame);
+		sf_count_t n = sf_readf_float(ch->file, out, requested);
+		if (n <= 0)
 			return STS_STREAM_COMPLETE;
+		*num_read += n;
+		ch->frame += n;
+		out += n * ch->info.channels;
+		frame_count -= n;
 	}
-
-	// read remaining data
-	sf_count_t n = sf_readf_float(ch->file, out, frame_count);
-	*num_read += n;
-	ch->frame += n;
-	out += *num_read;
-	frame_count -= *num_read;
-
-	// XXX: This *shouldn't* be necessary, but sometimes libsndfile seems to stop reading
-	//      just before the end of file (i.e. ch->frame + frame_count is < ch->info.frames,
-	//      yet sf_readf_float returns less that the requested amount of frames).
-	//      Not sure if this is a bug in xsystem4 or libsndfile
-	if (frame_count > 0) {
-		if (!cb_loop(ch))
-			return STS_STREAM_COMPLETE;
-		*num_read += sf_readf_float(ch->file, out, frame_count);
-	}
-
 	return STS_STREAM_CONTINUE;
 }
-
 /*
  * Calculate the gain for a fade at a given sample.
  */
@@ -207,8 +185,12 @@ static float cb_calc_fade(struct fade *fade)
 static int refill_stream(sts_mixer_sample_t *sample, void *data)
 {
 	struct channel *ch = data;
+	if (ch->stream_ended) {
+		ch->voice = -1;
+		return STS_STREAM_COMPLETE;
+	}
 	uint_least32_t frames_read;
-	memset(ch->data, 0, sizeof(float) * sample->length);
+	memset(ch->data, 0, sizeof(ch->data));
 
 	// read audio data from file
 	int r = cb_read_frames(ch, ch->data, CHUNK_SIZE, &frames_read);
@@ -250,10 +232,14 @@ static int refill_stream(sts_mixer_sample_t *sample, void *data)
 		mixers[ch->mixer_no].mixer.voices[ch->voice].gain = gain;
 	}
 
-	if (r == STS_STREAM_COMPLETE) {
-		ch->voice = -1;
+	if (r == STS_STREAM_COMPLETE && frames_read > 0) {
+		// Drain the final partial buffer before reporting completion.
+		ch->stream_ended = true;
+		sample->length = frames_read * 2;
+		return STS_STREAM_CONTINUE;
 	}
-
+	if (r == STS_STREAM_COMPLETE)
+		ch->voice = -1;
 	return r;
 }
 
@@ -270,20 +256,33 @@ static int refill_mixer(sts_mixer_sample_t *sample, void *data)
 
 int channel_play(struct channel *ch)
 {
+	if (ch->paused)
+		return channel_restart(ch);
 	SDL_LockAudioDevice(audio_device);
 	if (ch->voice >= 0) {
 		SDL_UnlockAudioDevice(audio_device);
 		return 1;
 	}
 	memset(ch->data, 0, sizeof(ch->data));
+	ch->stream.sample.length = CHUNK_SIZE * 2;
+	ch->stream_ended = false;
+	if (ch->frame >= ch->loop_end)
+		cb_seek(ch, 0);
 	ch->voice = sts_mixer_play_stream(&mixers[ch->mixer_no].mixer, &ch->stream, 1.0f);
+	if (ch->voice >= 0)
+		mixers[ch->mixer_no].mixer.voices[ch->voice].position = CHUNK_SIZE;
+	bool playing = ch->voice >= 0;
 	SDL_UnlockAudioDevice(audio_device);
-	return 1;
+	return playing;
 }
 
 int channel_stop(struct channel *ch)
 {
 	SDL_LockAudioDevice(audio_device);
+	if (ch->paused) {
+		ch->paused = false;
+		cb_seek(ch, 0);
+	}
 	if (ch->voice < 0) {
 		SDL_UnlockAudioDevice(audio_device);
 		return 1;
@@ -374,25 +373,41 @@ int channel_is_fading(struct channel *ch)
 	return ch->fade.fading;
 }
 
-int channel_pause(possibly_unused struct channel *ch)
+int channel_pause(struct channel *ch)
 {
-	// NOTE: not implemented in Sengoku Rance's SACT2.dll
-	WARNING("channel_pause not implemented");
-	return 0;
+	SDL_LockAudioDevice(audio_device);
+	if (ch->voice >= 0) {
+		ch->paused_position = mixers[ch->mixer_no].mixer.voices[ch->voice].position;
+		sts_mixer_stop_voice(&mixers[ch->mixer_no].mixer, ch->voice);
+		ch->voice = -1;
+		ch->paused = true;
+	}
+	bool paused = ch->paused;
+	SDL_UnlockAudioDevice(audio_device);
+	return paused;
 }
 
-int channel_restart(possibly_unused struct channel *ch)
+int channel_restart(struct channel *ch)
 {
-	// NOTE: not implemented in Sengoku Rance's SACT2.dll
-	WARNING("channel_restart not implemented");
-	return 0;
+	SDL_LockAudioDevice(audio_device);
+	if (!ch->paused) {
+		SDL_UnlockAudioDevice(audio_device);
+		return 0;
+	}
+	int voice = sts_mixer_play_stream(&mixers[ch->mixer_no].mixer, &ch->stream, ch->volume / 100.0f);
+	if (voice >= 0) {
+		mixers[ch->mixer_no].mixer.voices[voice].position = ch->paused_position;
+		ch->voice = voice;
+		ch->paused = false;
+	}
+	SDL_UnlockAudioDevice(audio_device);
+	return voice >= 0;
 }
 
-int channel_is_paused(possibly_unused struct channel *ch)
+int channel_is_paused(struct channel *ch)
 {
-	return 0;
+	return ch->paused;
 }
-
 int channel_get_pos(struct channel *ch)
 {
 	return muldiv(ch->frame, 1000, ch->info.samplerate);
@@ -419,6 +434,13 @@ int channel_seek(struct channel *ch, int pos)
 	// NOTE: SACT2.Music_Seek doesn't seem to do anything in Sengoku Rance...
 	SDL_LockAudioDevice(audio_device);
 	int r = cb_seek(ch, muldiv(pos, ch->info.samplerate, 1000));
+	if (r) {
+		ch->stream_ended = false;
+		ch->stream.sample.length = CHUNK_SIZE * 2;
+		ch->paused_position = CHUNK_SIZE;
+		if (ch->voice >= 0)
+			mixers[ch->mixer_no].mixer.voices[ch->voice].position = CHUNK_SIZE;
+	}
 	SDL_UnlockAudioDevice(audio_device);
 	return r;
 }
@@ -437,6 +459,14 @@ int channel_get_volume(struct channel *ch)
 int channel_get_time_length(struct channel *ch)
 {
 	return muldiv(ch->info.frames, 1000, ch->info.samplerate);
+}
+
+int channel_set_group(struct channel *ch, int group)
+{
+	if (group < 0 || group >= nr_mixers || ch->voice >= 0 || ch->paused)
+		return 0;
+	ch->mixer_no = group;
+	return 1;
 }
 
 int channel_get_data_no(struct channel *ch)
