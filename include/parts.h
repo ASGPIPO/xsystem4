@@ -132,6 +132,8 @@ void PE_set_active_controller(int controller_no);
 int PE_get_active_controller(void);
 int PE_get_system_controller(void);
 int PE_get_nr_controllers(void);
+void PE_SetWantSaveBackScene(int parts_no, bool enable);
+bool PE_IsWantSaveBackScene(int parts_no);
 void PE_parts_set_want_save(int parts_no, bool want_save);
 bool PE_save_thumbnail(struct string *filename, int reduction_factor);
 bool PE_init_parts_movie(int parts_no, int width, int height, int bg_r, int bg_g, int bg_b, int state);
