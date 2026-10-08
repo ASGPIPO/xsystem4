@@ -212,7 +212,7 @@ float _gfx_render_text(Texture *dst, char *msg, struct text_render_metrics *tm)
 		// get glyph for character
 		float scale_x = *msg == ' ' ? tm->space_scale_x : tm->scale_x;
 		uint32_t code = char_to_code(msg, tm->font_size->font->charmap);
-		msg += SJIS_2BYTE(*msg) ? 2 : 1;
+		msg += sjis_char_size(msg);
 		struct glyph *glyph = font_get_glyph(tm->font_size, code, tm->weight);
 		if (!glyph)
 			continue;
