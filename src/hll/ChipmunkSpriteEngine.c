@@ -115,6 +115,28 @@ HLL_QUIET_UNIMPLEMENTED((keep_previous_view = on, true), bool, ChipmunkSpriteEng
 HLL_QUIET_UNIMPLEMENTED(keep_previous_view, bool, ChipmunkSpriteEngine, KeepPreviousView_GetMode);
 HLL_QUIET_UNIMPLEMENTED(false, bool, ChipmunkSpriteEngine, KeepPreviousView);
 
+static bool config_frame_skip_all_while_message_skip = false;
+
+static void ChipmunkSpriteEngine_SYSTEM_SetConfigFrameSkipAllWhileMessageSkip(bool on)
+{
+	config_frame_skip_all_while_message_skip = !!on;
+}
+
+static int ChipmunkSpriteEngine_Update(void)
+{
+	if (config_frame_skip_all_while_message_skip
+			&& StoatSpriteEngine_SYSTEM_GetReadMessageSkipping()
+			&& StoatSpriteEngine_SYSTEM_GetConfigFrameSkipWhileMessageSkip()
+			&& !StoatSpriteEngine_SYSTEM_GetInvalidateFrameSkipWhileMessageSkip()) {
+		/* Keep input and sprite logic alive without clearing scene_is_dirty,
+		 * so the latest frame is rendered when message skipping ends. */
+		handle_events();
+		sprite_call_plugins();
+		return 1;
+	}
+	return sact_Update();
+}
+
 static void ChipmunkSpriteEngine_Sleep(void)
 {
 	static int prev_time = 0;
@@ -293,7 +315,7 @@ HLL_LIBRARY(ChipmunkSpriteEngine,
 	    HLL_TODO_EXPORT(Error, SACT2_Error),
 	    HLL_EXPORT(GetScreenWidth, sact_GetScreenWidth),
 	    HLL_EXPORT(GetScreenHeight, sact_GetScreenHeight),
-	    HLL_EXPORT(Update, sact_Update),
+	    HLL_EXPORT(Update, ChipmunkSpriteEngine_Update),
 	    HLL_EXPORT(SP_GetUnuseNum, sact_SP_GetUnuseNum),
 	    HLL_EXPORT(SP_Count, sact_SP_Count),
 	    HLL_EXPORT(SP_Enum, sact_SP_Enum),
@@ -411,6 +433,7 @@ HLL_LIBRARY(ChipmunkSpriteEngine,
 	    HLL_EXPORT(SYSTEM_SetReadMessageSkipping, StoatSpriteEngine_SYSTEM_SetReadMessageSkipping),
 	    HLL_EXPORT(SYSTEM_GetReadMessageSkipping, StoatSpriteEngine_SYSTEM_GetReadMessageSkipping),
 	    HLL_EXPORT(SYSTEM_SetConfigFrameSkipWhileMessageSkip, StoatSpriteEngine_SYSTEM_SetConfigFrameSkipWhileMessageSkip),
+	    HLL_EXPORT(SYSTEM_SetConfigFrameSkipAllWhileMessageSkip, ChipmunkSpriteEngine_SYSTEM_SetConfigFrameSkipAllWhileMessageSkip),
 	    HLL_EXPORT(SYSTEM_GetConfigFrameSkipWhileMessageSkip, StoatSpriteEngine_SYSTEM_GetConfigFrameSkipWhileMessageSkip),
 	    HLL_EXPORT(SYSTEM_SetInvalidateFrameSkipWhileMessageSkip, StoatSpriteEngine_SYSTEM_SetInvalidateFrameSkipWhileMessageSkip),
 	    HLL_EXPORT(SYSTEM_GetInvalidateFrameSkipWhileMessageSkip, StoatSpriteEngine_SYSTEM_GetInvalidateFrameSkipWhileMessageSkip),

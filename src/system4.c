@@ -287,6 +287,11 @@ static char *get_save_path(const char *dir_name)
 
 static void config_init(void)
 {
+	// This translated release keeps CP936 bytes across INI, AIN, EX and archives.
+	bool rance03_chinese = config.game_name && config.ain_filename
+		&& !strcmp(config.game_name, "\xc0\xbc\xcb\xb9" "03")
+		&& !strcmp(config.ain_filename, "Rance03.ain");
+	sjis_set_encoding(rance03_chinese ? SJIS_ENCODING_CP936 : SJIS_ENCODING_CP932);
 	config.home_dir = get_xsystem4_home();
 	if (!config.game_name)
 		config.game_name = strdup(config.ain_filename);

@@ -376,6 +376,17 @@ static void SystemService_RestrainScreensaver(void) { }
 
 //static int SystemService_Debug_GetUseVideoMemorySize(void);
 
+/* Rance03 uses GetGameTitle as an engine protocol probe, not a display title.
+ * main checks [4:11]+[14:19]+[32:35], [7]==[31], and digit[13]*digit[19]==21.
+ * The x bytes are unconstrained by the AIN; the packed PE value is not known.
+ */
+static void SystemService_GetGameTitle_Rance03(struct string **text)
+{
+	if (*text)
+		free_string(*text);
+	*text = cstr_to_string("xxxxoi@64sdxx354di87xxxxxxxxxxx6zd5");
+}
+
 // Rance 01
 static void SystemService_Rance0123456789(struct string **text)
 {
@@ -487,6 +498,15 @@ static void SystemService_PreLink(void)
 	struct ain_hll_function *fun;
 	int libno = ain_get_library(ain, "SystemService");
 	assert(libno >= 0);
+
+	fun = get_fun(libno, "GetGameTitle");
+	if (fun && fun->return_type.data == AIN_VOID && fun->nr_arguments == 1
+			&& fun->arguments[0].type.data == AIN_REF_STRING
+			&& ain->version == 6 && ain->game_version == 100
+			&& ain_get_string_no(ain, "oi@64sd54di8zd5") >= 0) {
+		static_library_replace(&lib_SystemService, "GetGameTitle",
+				SystemService_GetGameTitle_Rance03);
+	}
 
 	fun = get_fun(libno, "IsResetOnce");
 	if (fun && fun->nr_arguments == 1) {

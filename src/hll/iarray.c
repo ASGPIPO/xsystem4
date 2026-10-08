@@ -80,7 +80,7 @@ void iarray_write_float(struct iarray_writer *w, float data)
 void iarray_write_string(struct iarray_writer *w, struct string *s)
 {
 	for (char *p = s->text; *p ;p++) {
-		if (SJIS_2BYTE(*p)) {
+		if (sjis_char_size(p) == 2) {
 			int c = (uint8_t)p[0] | ((uint8_t)p[1] << 8);
 			iarray_write(w, c);
 			p++;

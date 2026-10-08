@@ -993,6 +993,9 @@ static enum opcode execute_instruction(enum opcode opcode)
 		stack_push(v);
 		break;
 	}
+	// v6.1-v11 CHECKUDO releases the previous new-expression temporary.
+	// Alice-tools JAF emits DELETE at the same site for v12 and later.
+	case CHECKUDO:
 	case DELETE: {
 		int slot = stack_pop().i;
 		if (slot != -1)

@@ -152,7 +152,7 @@ void CharSpriteManager_Clear(void)
 
 static int extract_sjis_char(char *src, char *dst)
 {
-	if (SJIS_2BYTE(*src)) {
+	if (sjis_char_size(src) == 2) {
 		dst[0] = src[0];
 		dst[1] = src[1];
 		dst[2] = '\0';

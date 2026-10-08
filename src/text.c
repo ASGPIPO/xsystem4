@@ -62,11 +62,14 @@ static struct font *load_font(enum font_face type)
 	// user specified font
 	if (config.font_paths[type] && (font = ft_font_load(config.font_paths[type])))
 		return font;
+	// This CP936 release needs the installed font's simplified Chinese glyphs.
+	enum font_face default_type = type == FONT_GOTHIC && sjis_get_encoding() == SJIS_ENCODING_CP936
+		? FONT_MINCHO : type;
 	// installed default font
-	if ((font = ft_font_load(default_font_paths[type])))
+	if ((font = ft_font_load(default_font_paths[default_type])))
 		return font;
 	// local default font
-	if ((font = ft_font_load(local_font_paths[type])))
+	if ((font = ft_font_load(local_font_paths[default_type])))
 		return font;
 	ERROR("Failed to load %s font", type == FONT_GOTHIC ? "gothic" : "mincho");
 }
