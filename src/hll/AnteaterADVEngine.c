@@ -485,6 +485,11 @@ static void AnteaterADVEngine_ADVLogList_AddText_with_window(struct string **tex
 	ADVLogList_AddText(text);
 }
 
+static void AnteaterADVEngine_ADVLogList_AddText_value_with_window(struct string *text, possibly_unused int window_no)
+{
+	ADVLogList_AddText(&text);
+}
+
 HLL_LIBRARY(AnteaterADVEngine,
 	    HLL_EXPORT(_PreLink, AnteaterADVEngine_PreLink),
 	    HLL_EXPORT(_ModuleFini, AnteaterADVEngine_ModuleFini),
@@ -524,6 +529,10 @@ static void AnteaterADVEngine_PreLink(void)
 
 	fun = get_fun(libno, "ADVLogList_AddText");
 	if (fun && fun->nr_arguments == 2) {
-		static_library_replace(&lib_AnteaterADVEngine, "ADVLogList_AddText", AnteaterADVEngine_ADVLogList_AddText_with_window);
+		if (fun->arguments[0].type.data == AIN_STRING) {
+			static_library_replace(&lib_AnteaterADVEngine, "ADVLogList_AddText", AnteaterADVEngine_ADVLogList_AddText_value_with_window);
+		} else if (fun->arguments[0].type.data == AIN_REF_STRING) {
+			static_library_replace(&lib_AnteaterADVEngine, "ADVLogList_AddText", AnteaterADVEngine_ADVLogList_AddText_with_window);
+		}
 	}
 }

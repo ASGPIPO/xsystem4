@@ -117,6 +117,7 @@ int PE_GetInputState(int parts_no);
 bool PE_SetPartsRectangleDetectionSize(int parts_no, int w, int h, int state);
 bool PE_SetPartsCGDetectionSize(int parts_no, struct string *cg_name, int state);
 bool PE_Save(struct page **buffer);
+bool PE_SaveBackScene(struct page **buffer);
 bool PE_SaveWithoutHideParts(struct page **buffer);
 bool PE_Load(struct page **buffer);
 int PE_AddController(int index);
