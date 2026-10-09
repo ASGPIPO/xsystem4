@@ -727,6 +727,9 @@ static void fire_deferred_events(void)
 			if (remain == 0)
 				break;
 			SDL_Delay(remain > 10 ? 10 : remain);
+			SDL_PumpEvents();
+			if (SDL_HasEvents(SDL_FIRSTEVENT, SDL_LASTEVENT))
+				break;
 			if (!governor_power_save())
 				break;
 		}

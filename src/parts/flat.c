@@ -424,10 +424,11 @@ bool parts_flat_update(struct parts_flat *f, int passed_time)
 		return false;
 
 	f->elapsed += passed_time;
-	int delta = (int)((int64_t)f->elapsed * f->flat->hdr.fps / 1000);
+	float rate = f->fps_rate > 0.0f ? f->fps_rate : 1.0f;
+	int delta = (int)((int64_t)f->elapsed * (f->flat->hdr.fps * rate) / 1000);
 	if (!delta)
 		return false;
-	f->elapsed -= (unsigned)((int64_t)delta * 1000 / f->flat->hdr.fps);
+	f->elapsed -= (unsigned)((int64_t)delta * 1000 / (f->flat->hdr.fps * rate));
 
 	bool any_changed = false;
 	for (int i = 0; i < delta; i++) {
@@ -1041,4 +1042,45 @@ int PE_GetPartsFlatEndFrame(int parts_no, int state)
 	struct parts *parts = parts_get(parts_no);
 	struct parts_flat *f = parts_get_flat(parts, state);
 	return f->flat ? f->end_frame : -1;
+}
+
+void PE_SetFlatFPSRate(int parts_no, float rate, int state)
+{
+	if (!parts_state_valid(--state))
+		return;
+
+	struct parts *parts = parts_get(parts_no);
+	if (!parts)
+		return;
+	struct parts_flat *f = parts_get_flat(parts, state);
+	if (f)
+		f->fps_rate = rate;
+}
+
+float PE_GetFlatFPSRate(int parts_no, int state)
+{
+	if (!parts_state_valid(--state))
+		return 1.0f;
+
+	struct parts *parts = parts_get(parts_no);
+	if (!parts)
+		return 1.0f;
+	struct parts_flat *f = parts_get_flat(parts, state);
+	if (f && f->fps_rate > 0.0f)
+		return f->fps_rate;
+	return 1.0f;
+}
+
+int PE_GetFlatFPS(int parts_no, int state)
+{
+	if (!parts_state_valid(--state))
+		return 60;
+
+	struct parts *parts = parts_get(parts_no);
+	if (!parts)
+		return 60;
+	struct parts_flat *f = parts_get_flat(parts, state);
+	if (f && f->flat)
+		return f->flat->hdr.fps;
+	return 60;
 }

@@ -326,6 +326,7 @@ struct parts_flat {
 	unsigned elapsed;
 	int end_frame;
 	int pending_seek_delta;
+	float fps_rate;
 	struct flat_layer_state *root_state;
 	size_t nr_libraries;
 	Texture *textures;  // indexed by library index (only CG libs have valid textures)
