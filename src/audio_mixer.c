@@ -645,6 +645,9 @@ void channel_close(struct channel *ch)
 
 void mixer_init(void)
 {
+	if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
+		ERROR("SDL audio initialization failed: %s", SDL_GetError());
+
 	// initialize mixer naming
 	if (!config.mixer_nr_channels) {
 		nr_mixers = 3;
@@ -725,6 +728,8 @@ void mixer_init(void)
 		.callback = audio_callback,
 	};
 	audio_device = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+	if (!audio_device)
+		ERROR("SDL audio device open failed: %s", SDL_GetError());
 	SDL_PauseAudioDevice(audio_device, 0);
 }
 
