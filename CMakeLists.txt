@@ -32,6 +32,11 @@ target_compile_definitions(xsystem4 PRIVATE
   USE_GLES
   )
 
+option(RANCE03_SKIP_MOVIES "Skip unavailable movies in Rance03 trial builds" OFF)
+if(RANCE03_SKIP_MOVIES)
+  target_compile_definitions(xsystem4 PRIVATE RANCE03_SKIP_MOVIES)
+endif()
+
 target_include_directories(xsystem4 PRIVATE include)
 
 execute_process(

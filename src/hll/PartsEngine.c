@@ -24,6 +24,10 @@
 #include "parts.h"
 #include "hll.h"
 
+#ifdef RANCE03_SKIP_MOVIES
+#include "xsystem4.h"
+#endif
+
 static void PartsEngine_ModuleInit(void)
 {
 	PE_Init();
@@ -378,10 +382,45 @@ static int PartsEngine_ControllerIndex(int controller_no)
 	return controller_no;
 }
 
+#ifdef RANCE03_SKIP_MOVIES
+static bool PE_skip_CreatePartsMovie(int number, struct string *filename,
+		int sound_id, int sound_group, int r, int g, int b, int state)
+{
+	WARNING("SKIP_MOVIE: %s (Rance03 trial build)", filename ? filename->text : "");
+	if (PE_get_movie_sprite(number, state) >= 0)
+		return true;
+	return PE_init_parts_movie(number, config.view_width, config.view_height, 0, 0, 0, state);
+}
+
+static bool PE_skip_PlayPartsMovie(int number, int state)
+{
+	return PE_get_movie_sprite(number, state) >= 0;
+}
+
+static bool PE_skip_IsEndPartsMovie(int number, int state)
+{
+	return true;
+}
+
+static bool PE_skip_ReleasePartsMovie(int number, int state)
+{
+	if (PE_get_movie_sprite(number, state) < 0)
+		return false;
+	PE_ReleaseParts(number);
+	return true;
+}
+#endif
+
 static void PartsEngine_PreLink(void);
 
 HLL_LIBRARY(PartsEngine,
 	    HLL_EXPORT(_PreLink, PartsEngine_PreLink),
+#ifdef RANCE03_SKIP_MOVIES
+	    HLL_EXPORT(CreatePartsMovie, PE_skip_CreatePartsMovie),
+	    HLL_EXPORT(ReleasePartsMovie, PE_skip_ReleasePartsMovie),
+	    HLL_EXPORT(PlayPartsMovie, PE_skip_PlayPartsMovie),
+	    HLL_EXPORT(IsEndPartsMovie, PE_skip_IsEndPartsMovie),
+#endif
 	    // for versions without PartsEngine.Init
 	    HLL_EXPORT(_ModuleInit, PartsEngine_ModuleInit),
 	    HLL_EXPORT(_ModuleFini, PartsEngine_ModuleFini),
