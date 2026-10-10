@@ -287,11 +287,11 @@ void mouse_get_pos(int *x, int *y)
 	// press is published after the finger-up event was processed, so
 	// without the pulse check the game would read a stale synthesized
 	// mouse position on the very frame VK_LBUTTON turns true.
-	bool pointer_owned = touch_frames_active && touch_frame_polled
+	bool pointer_owned = touch_frames_active
 		? touch_frame_pointer_owned
 		: touch_gesture_get_state() != TG_IDLE || touch_gesture_pulse_pending();
 	if (touch_gesture_inited && pointer_owned) {
-		if (touch_frames_active && touch_frame_polled) {
+		if (touch_frames_active) {
 			*x = touch_frame_output.game_x;
 			*y = touch_frame_output.game_y;
 		} else {

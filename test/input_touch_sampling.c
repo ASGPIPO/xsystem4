@@ -209,6 +209,10 @@ int main(void)
 	position(&x,&y);
 	CHECK(x>=920&&x<=922,"same-frame drag UP retains latched position while L is down");
 	frame(INPUT_FRAME_PARTS);
+	// PE_UpdateInputState reads key/position directly before SACT pumps events.
+	mouse_get_pos(&x,&y);
+	CHECK(key_is_down(VK_LBUTTON)&&x>=920&&x<=922,
+		"Parts direct key/position reads retain previous drag sample before poll");
 	CHECK(!query(VK_LBUTTON),"drag release is visible next frame");
 
 	reset();tap(16,.25f,.5f);queue(SDL_FINGERDOWN,17,.70f,.5f);
@@ -226,6 +230,9 @@ int main(void)
 	position(&x,&y);
 	CHECK(query(VK_RBUTTON)&&x>=715&&x<=717,"same-frame hold UP retains latched position while R is down");
 	frame(INPUT_FRAME_PARTS);
+	mouse_get_pos(&x,&y);
+	CHECK(key_is_down(VK_RBUTTON)&&x>=715&&x<=717,
+		"Parts direct key/position reads retain previous hold sample before poll");
 	CHECK(!query(VK_RBUTTON),"held R release is visible at primary frame boundary");
 
 	// Rance03 MouseInput.updateWheel uses Forward-Back; positive opens backlog.
