@@ -16,6 +16,21 @@
 
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
+#include <stdint.h>
+#include <stdio.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/utsname.h>
+#include <unistd.h>
+#endif
+#ifdef __linux__
+#include <sys/sysinfo.h>
+#endif
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
+#include <cpuid.h>
+#endif
 
 #include "system4/ain.h"
 #include "system4/string.h"
@@ -274,6 +289,126 @@ void SystemService_GetGameFolderPath(struct string **folder_path)
 	free(sjis);
 }
 
+static void SystemService_SetInfoString(struct string **out, const char *text)
+{
+	struct string *value = cstr_to_string(text);
+	if (*out)
+		free_string(*out);
+	*out = value;
+}
+
+static int memory_megabytes(uint64_t amount, unsigned int unit)
+{
+	const uint64_t megabyte = 1024 * 1024;
+	if (unit && amount > (uint64_t)INT_MAX * megabyte / unit)
+		return INT_MAX;
+	return amount * unit / megabyte;
+}
+
+/* System physical memory, in MiB; pUse excludes only completely free pages.
+ * Rance03's survey consumes pMax and discards pUse.
+ */
+static void SystemService_GetMemoryInfo(int *max, int *use)
+{
+	*max = SDL_GetSystemRAM();
+	*use = 0;
+#ifdef __linux__
+	struct sysinfo info;
+	if (sysinfo(&info) == 0) {
+		*max = memory_megabytes(info.totalram, info.mem_unit);
+		*use = memory_megabytes(info.totalram - info.freeram, info.mem_unit);
+		return;
+	}
+#elif defined(_WIN32)
+	MEMORYSTATUSEX info = { .dwLength = sizeof(info) };
+	if (GlobalMemoryStatusEx(&info)) {
+		*max = memory_megabytes(info.ullTotalPhys, 1);
+		*use = memory_megabytes(info.ullTotalPhys - info.ullAvailPhys, 1);
+		return;
+	}
+#elif defined(_SC_PHYS_PAGES) && defined(_SC_AVPHYS_PAGES)
+	long page_size = sysconf(_SC_PAGESIZE);
+	long total_pages = sysconf(_SC_PHYS_PAGES);
+	long free_pages = sysconf(_SC_AVPHYS_PAGES);
+	if (page_size > 0 && total_pages >= 0 && free_pages >= 0 && free_pages <= total_pages) {
+		*max = memory_megabytes(total_pages, page_size);
+		*use = memory_megabytes(total_pages - free_pages, page_size);
+		return;
+	}
+#endif
+	WARNING("Cannot query used system physical memory");
+}
+
+static void SystemService_GetCPUInfo(struct string **vendor_name, int *signature,
+		int *cpu_flag, struct string **brand_name)
+{
+	char vendor[13] = {0};
+	char brand[49] = {0};
+	*signature = 0;
+	*cpu_flag = 0;
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
+	unsigned int eax, ebx, ecx, edx;
+	if (__get_cpuid(0, &eax, &ebx, &ecx, &edx)) {
+		memcpy(vendor, &ebx, 4);
+		memcpy(vendor + 4, &edx, 4);
+		memcpy(vendor + 8, &ecx, 4);
+	}
+	if (__get_cpuid(1, &eax, &ebx, &ecx, &edx)) {
+		*signature = eax;
+		*cpu_flag = edx;
+	}
+	if (__get_cpuid_max(0x80000000, NULL) >= 0x80000004) {
+		for (unsigned int i = 0; i < 3; i++) {
+			__get_cpuid(0x80000002 + i, &eax, &ebx, &ecx, &edx);
+			memcpy(brand + i * 16, &eax, 4);
+			memcpy(brand + i * 16 + 4, &ebx, 4);
+			memcpy(brand + i * 16 + 8, &ecx, 4);
+			memcpy(brand + i * 16 + 12, &edx, 4);
+		}
+	}
+#endif
+	/* CPUID signature/EDX flags and vendor are unavailable on ARM.
+	 * Report the real architecture as the brand rather than invent x86 data.
+	 */
+	const char *fallback_brand = SDL_GetPlatform();
+#ifndef _WIN32
+	struct utsname info;
+	if (uname(&info) == 0)
+		fallback_brand = info.machine;
+#endif
+	SystemService_SetInfoString(vendor_name, vendor);
+	SystemService_SetInfoString(brand_name, brand[0] ? brand : fallback_brand);
+}
+
+static void SystemService_GetOSInfo(struct string **text)
+{
+#ifndef _WIN32
+	struct utsname info;
+	if (uname(&info) == 0) {
+		char description[512];
+		snprintf(description, sizeof(description), "%s %s %s %s",
+				SDL_GetPlatform(), info.sysname, info.release, info.machine);
+		SystemService_SetInfoString(text, description);
+		return;
+	}
+#endif
+	SystemService_SetInfoString(text, SDL_GetPlatform());
+}
+
+static void SystemService_GetScreenInfo(struct string **text)
+{
+	SDL_DisplayMode mode;
+	if (SDL_GetCurrentDisplayMode(0, &mode) == 0) {
+		char description[128];
+		snprintf(description, sizeof(description), "%dx%d %dHz %s",
+				mode.w, mode.h, mode.refresh_rate, SDL_GetPixelFormatName(mode.format));
+		SystemService_SetInfoString(text, description);
+		return;
+	}
+	WARNING("Cannot query display mode: %s", SDL_GetError());
+	SystemService_SetInfoString(text, SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "");
+}
+
 static void SystemService_GetTime(int *hour, int *min, int *sec)
 {
 	int ms;
@@ -476,6 +611,10 @@ HLL_LIBRARY(SystemService,
 	    HLL_EXPORT(IsExistPlayingManual, SystemService_IsExistPlayingManual),
 	    HLL_EXPORT(IsExistSystemMessage, SystemService_IsExistSystemMessage),
 	    HLL_TODO_EXPORT(PopSystemMessage, SystemService_PopSystemMessage),
+	    HLL_EXPORT(GetCPUInfo, SystemService_GetCPUInfo),
+	    HLL_EXPORT(GetMemoryInfo, SystemService_GetMemoryInfo),
+	    HLL_EXPORT(GetOSInfo, SystemService_GetOSInfo),
+	    HLL_EXPORT(GetScreenInfo, SystemService_GetScreenInfo),
 	    HLL_EXPORT(RestrainScreensaver, SystemService_RestrainScreensaver),
 	    HLL_TODO_EXPORT(Debug_GetUseVideoMemorySize, SystemService_Debug_GetUseVideoMemorySize),
 	    HLL_EXPORT(Rance0123456789, SystemService_Rance0123456789),
