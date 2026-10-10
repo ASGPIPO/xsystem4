@@ -79,6 +79,8 @@ struct tg_output {
 // Install the configuration and reset the state machine.
 void touch_gesture_init(const struct tg_config *cfg);
 void touch_gesture_shutdown(void);
+// Discard queued button edges when the game explicitly clears input flags.
+void touch_gesture_discard_pulses(void);
 
 // Update the window geometry when it changes (SDL_WINDOWEVENT_SIZE_CHANGED).
 void touch_gesture_set_screen_size(int w, int h);

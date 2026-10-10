@@ -1177,6 +1177,7 @@ void PE_Update(int passed_time, bool message_window_show)
 
 void PE_UpdateParts(int passed_time, possibly_unused bool is_skip, bool message_window_show)
 {
+	input_begin_frame(INPUT_FRAME_PARTS);
 	parts_message_window_show = message_window_show;
 	audio_update();
 	parts_update_animation(passed_time);

@@ -178,6 +178,7 @@ int sact_GetMainSurfaceNumber(void)
 
 int sact_Update(void)
 {
+	input_begin_frame(INPUT_FRAME_SACT);
 	handle_events();
 	sprite_call_plugins();
 	if (scene_is_dirty) {

@@ -49,6 +49,10 @@
 // Defined together with the gesture engine integration below; forward
 // declared here because mouse_get_pos() consults it.
 static bool touch_gesture_inited;
+static bool touch_frames_active;
+static bool touch_frame_polled;
+static bool touch_frame_pointer_owned;
+static struct tg_output touch_frame_output;
 #endif
 
 bool key_state[VK_NR_KEYCODES];
@@ -225,6 +229,27 @@ static enum sact_keycode sdl_to_sact_button(int button)
 	}
 }
 
+void input_begin_frame(enum input_frame_source source)
+{
+#ifdef TOUCH_GESTURE_BUILD
+	// Rance03 SYS_View_Update runs Parts then Chipmunk/SACT in one frame.
+	// Its Parts boundary is the sole driver, including sprite-skip mode.
+	bool rance03 = config.game_name && config.ain_filename
+		&& !strcmp(config.game_name, "\xc0\xbc\xcb\xb9" "03")
+		&& !strcmp(config.ain_filename, "Rance03.ain");
+	if (source != (rance03 ? INPUT_FRAME_PARTS : INPUT_FRAME_SACT))
+		return;
+	if (!touch_frames_active) {
+		// Adopting a driver must not consume an already published press.
+		touch_frames_active = true;
+		return;
+	}
+	touch_frame_polled = false;
+#else
+	(void)source;
+#endif
+}
+
 bool key_is_down(enum sact_keycode code)
 {
 	if (code < 0 || code >= VK_NR_KEYCODES) {
@@ -235,6 +260,15 @@ bool key_is_down(enum sact_keycode code)
 
 void key_clear_flag(bool no_ctrl)
 {
+#ifdef TOUCH_GESTURE_BUILD
+	touch_gesture_discard_pulses();
+	// Clearing button flags does not move the sampled pointer.
+	touch_frame_output.lbutton = touch_frame_output.rbutton = false;
+	touch_frame_output.lbutton_pulse = touch_frame_output.rbutton_pulse = false;
+	touch_frame_output.wheel = 0;
+	touch_frame_output.control = no_ctrl && key_state[VK_CONTROL];
+	touch_frame_polled = true;
+#endif
 	for (int i = 0; i < VK_NR_KEYCODES; i++) {
 		if (no_ctrl && i == VK_CONTROL)
 			continue;
@@ -253,9 +287,16 @@ void mouse_get_pos(int *x, int *y)
 	// press is published after the finger-up event was processed, so
 	// without the pulse check the game would read a stale synthesized
 	// mouse position on the very frame VK_LBUTTON turns true.
-	if (touch_gesture_inited && (touch_gesture_get_state() != TG_IDLE
-	                             || touch_gesture_pulse_pending())) {
-		touch_gesture_get_pos(x, y);
+	bool pointer_owned = touch_frames_active && touch_frame_polled
+		? touch_frame_pointer_owned
+		: touch_gesture_get_state() != TG_IDLE || touch_gesture_pulse_pending();
+	if (touch_gesture_inited && pointer_owned) {
+		if (touch_frames_active && touch_frame_polled) {
+			*x = touch_frame_output.game_x;
+			*y = touch_frame_output.game_y;
+		} else {
+			touch_gesture_get_pos(x, y);
+		}
 		return;
 	}
 #endif
@@ -371,11 +412,19 @@ static bool touch_owns_buttons;
 
 static void apply_touch_gesture_output(void)
 {
-	struct tg_output o = touch_gesture_poll();
+	if (!touch_frames_active || !touch_frame_polled) {
+		touch_frame_output = touch_gesture_poll();
+		touch_frame_pointer_owned = touch_gesture_get_state() != TG_IDLE
+			|| touch_gesture_pulse_pending();
+		touch_frame_polled = true;
+	}
+	struct tg_output o = touch_frame_output;
 	// Wheel is a one-shot, not a held key: apply it even while the
 	// gesture layer owns no buttons.
-	if (o.wheel)
+	if (o.wheel) {
 		wheel_dir = o.wheel;
+		touch_frame_output.wheel = 0;
+	}
 	bool touch_active = o.lbutton || o.rbutton || o.control || o.lbutton_pulse || o.rbutton_pulse;
 	// While a pulse is in flight (queued, held back by the pulse
 	// pacing, or just published) the gesture layer stays the owner of

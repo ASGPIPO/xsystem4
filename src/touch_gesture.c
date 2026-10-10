@@ -72,6 +72,7 @@ struct button_pulse {
 };
 static struct button_pulse *pulse_head, *pulse_tail;
 static bool pulse_last_published;
+static bool pulse_release_published;
 static int pulse_x, pulse_y;
 static int pending_wheel;
 static int game_x, game_y;
@@ -88,6 +89,7 @@ static void clear_button_pulses(void)
 	}
 	pulse_tail = NULL;
 	pulse_last_published = false;
+	pulse_release_published = false;
 	pulse_x = pulse_y = 0;
 }
 
@@ -273,6 +275,11 @@ void touch_gesture_shutdown(void)
 	haptic_hook = NULL;
 }
 
+void touch_gesture_discard_pulses(void)
+{
+	clear_button_pulses();
+}
+
 void touch_gesture_set_screen_size(int w, int h)
 {
 	cfg.screen_w = w;
@@ -451,9 +458,11 @@ void touch_gesture_tick(uint32_t now)
 struct tg_output touch_gesture_poll(void)
 {
 	struct tg_output o = {0};
+	pulse_release_published = false;
 	if (pulse_last_published) {
 		// Release the previous pulse even if a new gesture is held.
 		pulse_last_published = false;
+	pulse_release_published = true;
 	} else if (pulse_head) {
 		struct button_pulse *pulse = pulse_head;
 		o.lbutton_pulse = !pulse->right;
@@ -479,13 +488,13 @@ struct tg_output touch_gesture_poll(void)
 
 bool touch_gesture_pulse_pending(void)
 {
-	return pulse_head || pulse_last_published;
+	return pulse_head || pulse_last_published || pulse_release_published;
 }
 
 void touch_gesture_get_pos(int *x, int *y)
 {
 	if (x)
-		*x = pulse_last_published ? pulse_x : game_x;
+		*x = (pulse_last_published || pulse_release_published) ? pulse_x : game_x;
 	if (y)
-		*y = pulse_last_published ? pulse_y : game_y;
+		*y = (pulse_last_published || pulse_release_published) ? pulse_y : game_y;
 }

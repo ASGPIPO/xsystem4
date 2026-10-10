@@ -68,14 +68,19 @@ static int failures;
 	else { printf("FAIL %s (line %d)\n", msg, __LINE__); failures++; } \
 } while (0)
 
-// Pump n frames, recording the peak key state seen between pumps (tap
-// pulses live for exactly one pump).
+// Pump n logical frames, recording the peak key state between frames.
+static void pump_input_frame(void)
+{
+	input_begin_frame(INPUT_FRAME_SACT);
+	handle_events();
+}
+
 static bool peak_lb, peak_rb, peak_ct;
 static void reset_peaks(void) { peak_lb = peak_rb = peak_ct = false; }
 static void pump(int n)
 {
 	for (int i = 0; i < n; i++) {
-		handle_events();
+		pump_input_frame();
 		if (key_state[VK_LBUTTON])
 			peak_lb = true;
 		if (key_state[VK_RBUTTON])
@@ -118,7 +123,7 @@ static bool wait_until(bool (*cond)(void), Uint32 timeout_ms, const char *what)
 {
 	Uint32 t0 = SDL_GetTicks();
 	while (SDL_GetTicks() - t0 < timeout_ms) {
-		handle_events();
+		pump_input_frame();
 		if (cond())
 			return true;
 		SDL_Delay(5);
@@ -219,7 +224,7 @@ int main(void)
 	bool saw_press = false, press_pos_ok = false;
 	int press_frames = 0;
 	for (int i = 0; i < 8; i++) {
-		handle_events();
+		pump_input_frame();
 		if (key_state[VK_LBUTTON]) {
 			press_frames++;
 			saw_press = true;
@@ -256,7 +261,7 @@ int main(void)
 	int press_edges = 0;
 	bool prev_lb = false;
 	for (int i = 0; i < 10; i++) {
-		handle_events();
+		pump_input_frame();
 		if (key_state[VK_LBUTTON] && !prev_lb)
 			press_edges++;
 		prev_lb = key_state[VK_LBUTTON];
@@ -274,7 +279,7 @@ int main(void)
  int review_positions[2][2] = {{-1,-1},{-1,-1}};
  int review_clicks = 0;
  for (int i=0; i<8; i++) {
-  handle_events();
+  pump_input_frame();
   if (key_state[VK_LBUTTON]) {
    int x,y;
    mouse_get_pos(&x,&y);
@@ -302,7 +307,7 @@ int main(void)
  int review_buttons[2] = {-1,-1};
  int review_edges=0;
  for (int i=0; i<8; i++) {
-  handle_events();
+  pump_input_frame();
   if (key_state[VK_LBUTTON] || key_state[VK_RBUTTON]) {
    int b = key_state[VK_RBUTTON] ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
    printf("OBSERVE mixed pulse index=%d button=%d\n", review_edges, b);
@@ -319,7 +324,7 @@ int main(void)
  // Independent review regression: release-only sub-threshold drift.
  review_raw_finger(SDL_FINGERDOWN, 206, .25f, .25f);
  review_raw_finger(SDL_FINGERUP, 206, .25390625f, .25f);
- handle_events();
+ pump_input_frame();
  int review_release_x=-1, review_release_y=-1;
  mouse_get_pos(&review_release_x,&review_release_y);
  printf("OBSERVE release-only drift actual=(%d,%d) expected=(196,144)\n",
@@ -335,7 +340,7 @@ int main(void)
  review_raw_finger(SDL_FINGERUP, review_high_id, .25f, .25f);
  int review_high_presses=0;
  for (int i=0; i<8; i++) {
-  handle_events();
+  pump_input_frame();
   if (key_state[VK_LBUTTON]) review_high_presses++;
  }
  printf("OBSERVE high finger ID=%lld presses=%d state=%d\n",
@@ -361,24 +366,24 @@ int main(void)
  review_raw_finger(SDL_FINGERUP, 602, .75f, .75f);
  review_raw_finger(SDL_FINGERDOWN, 603, .5f, .5f);
  review_raw_finger(SDL_FINGERMOTION, 603, .6f, .6f);
- handle_events();
+ pump_input_frame();
  int fifo_x, fifo_y;
  mouse_get_pos(&fifo_x, &fifo_y);
  CHECK(key_is(true, false, false) && fifo_x == 192 && fifo_y == 144,
        "FIFO first tap owns coordinates over new active drag");
- handle_events();
+ pump_input_frame();
  mouse_get_pos(&fifo_x, &fifo_y);
  CHECK(key_is(false, false, false),
        "FIFO release frame cannot merge tap into new drag hold");
- CHECK(fifo_x == 640 && fifo_y == 480,
-       "FIFO release restores active drag coordinates");
- handle_events();
+ CHECK(fifo_x == 192 && fifo_y == 144,
+       "FIFO release retains released tap coordinates until the next press");
+ pump_input_frame();
  mouse_get_pos(&fifo_x, &fifo_y);
  CHECK(key_is(true, false, false) && fifo_x == 832 && fifo_y == 624,
        "FIFO second tap owns its own coordinates over active drag");
- handle_events();
+ pump_input_frame();
  CHECK(key_is(false, false, false), "FIFO second release separates drag hold");
- handle_events();
+ pump_input_frame();
  mouse_get_pos(&fifo_x, &fifo_y);
  CHECK(key_is(true, false, false) && fifo_x == 640 && fifo_y == 480,
        "FIFO drained queue resumes new drag with intact coordinates");
@@ -390,15 +395,15 @@ int main(void)
  review_raw_finger(SDL_FINGERDOWN, 604, .25f, .25f);
  review_raw_finger(SDL_FINGERUP, 604, .25f, .25f);
  review_raw_finger(SDL_FINGERDOWN, 605, .75f, .75f);
- handle_events();
+ pump_input_frame();
  mouse_get_pos(&fifo_x, &fifo_y);
  CHECK(key_is(true, false, false) && fifo_x == 192 && fifo_y == 144,
        "FIFO tap press coordinates survive new pending finger");
  SDL_Delay(360);
- handle_events();
+ pump_input_frame();
  CHECK(touch_gesture_get_state() == TG_HOLDING && key_is(false, false, false),
        "FIFO pulse release precedes new long press output");
- handle_events();
+ pump_input_frame();
  mouse_get_pos(&fifo_x, &fifo_y);
  CHECK(key_is(false, true, false) && fifo_x == 832 && fifo_y == 624,
        "FIFO new long press resumes at its own origin");
@@ -415,7 +420,7 @@ int main(void)
  int fifo_burst_count=0;
  bool fifo_burst_coordinates=true, fifo_burst_release=true, fifo_previous=false;
  for (int i=0; i<520; i++) {
-  handle_events();
+  pump_input_frame();
   bool pressed=key_state[VK_LBUTTON];
   if (pressed) {
    mouse_get_pos(&fifo_x, &fifo_y);
@@ -532,7 +537,7 @@ int main(void)
 	pump(8);
 	CHECK(key_state[VK_CONTROL], "physical Ctrl press survives idle gesture layer");
 	for (int i = 0; i < 20; i++)
-		handle_events();
+		pump_input_frame();
 	CHECK(key_state[VK_CONTROL], "physical Ctrl stays down across frames (idle gesture layer)");
 	k.type = SDL_KEYUP;
 	SDL_PushEvent(&k);
@@ -586,7 +591,7 @@ int main(void)
  review_raw_finger(SDL_FINGERDOWN, 501, .25f, .25f);
  review_raw_finger(SDL_FINGERUP, 501, .25f, .25f);
  Uint32 review_start=SDL_GetTicks();
- handle_events();
+ pump_input_frame();
  Uint32 review_ms=SDL_GetTicks()-review_start;
  printf("OBSERVE Android queued tap pump_ms=%u pressed=%d\n",
         review_ms, (int)key_state[VK_LBUTTON]);

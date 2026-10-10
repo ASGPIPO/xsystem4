@@ -139,6 +139,9 @@ extern bool keyboard_focus;
 
 void handle_window_events(void);
 void handle_events(void);
+enum input_frame_source { INPUT_FRAME_SACT, INPUT_FRAME_PARTS };
+// Logical render/update boundary, not an SDL/HLL event-pump invocation.
+void input_begin_frame(enum input_frame_source source);
 bool key_is_down(enum sact_keycode code);
 void key_clear_flag(bool no_ctrl);
 bool joy_key_is_down(uint8_t code);
