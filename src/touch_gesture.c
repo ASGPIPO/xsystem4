@@ -357,11 +357,11 @@ void touch_gesture_finger_motion(uint32_t now, int64_t finger, float x, float y)
 			}
 		}
 		if (mlock == MLOCK_SCROLL) {
-			// Swipe down: emit one mouse-wheel-back step per
-			// scroll_step of accumulated movement. The game opens
-			// the backlog in response to the wheel.
+			// Swipe down: emit a positive wheel step. Rance03
+			// MouseInput.updateWheel uses Forward-Back, and its
+			// positive-wheel branch opens the backlog.
 			while (avg_y - scroll_anchor >= cfg.scroll_step) {
-				pending_wheel = -1;
+				pending_wheel = 1;
 				scroll_anchor += cfg.scroll_step;
 			}
 		}

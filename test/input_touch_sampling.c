@@ -228,6 +228,28 @@ int main(void)
 	frame(INPUT_FRAME_PARTS);
 	CHECK(!query(VK_RBUTTON),"held R release is visible at primary frame boundary");
 
+	// Rance03 MouseInput.updateWheel uses Forward-Back; positive opens backlog.
+	reset();mouse_clear_wheel();
+	queue(SDL_FINGERDOWN,19,.30f,.30f);queue(SDL_FINGERDOWN,20,.60f,.30f);
+	queue(SDL_FINGERMOTION,19,.30f,.45f);queue(SDL_FINGERMOTION,20,.60f,.45f);
+	handle_events();
+	int forward,back;
+	mouse_get_wheel(&forward,&back);
+	CHECK(forward&&!back,"two-finger down emits positive game wheel for actual AIN backlog");
+	CHECK(!query(VK_LBUTTON)&&!query(VK_RBUTTON)&&!query(VK_CONTROL),
+		"down-scroll has no click or fast-forward side effect");
+	mouse_clear_wheel();
+	for(int i=0;i<20;i++) handle_events();
+	mouse_get_wheel(&forward,&back);
+	CHECK(!forward&&!back,"cleared wheel is not replayed by same-frame HLL pumps");
+	frame(INPUT_FRAME_PARTS);handle_events();
+	mouse_get_wheel(&forward,&back);
+	CHECK(!forward&&!back,"wheel step is delivered once across the next frame");
+	queue(SDL_FINGERUP,19,.30f,.45f);queue(SDL_FINGERUP,20,.60f,.45f);
+	frame(INPUT_FRAME_PARTS);handle_events();
+	CHECK(!query(VK_LBUTTON)&&!query(VK_RBUTTON)&&!query(VK_CONTROL),
+		"completed down-scroll does not become tap or cancel");
+
 	// Other games retain SACT as their default marker, not sticky Parts.
 	reset();
 	config.game_name="Other game";config.ain_filename="Other.ain";

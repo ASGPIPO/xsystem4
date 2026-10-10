@@ -489,7 +489,7 @@ int main(void)
 	pump(8);
 	CHECK(key_is(false, false, false), "drag release clears VK_LBUTTON");
 
-	// -- 4. two-finger swipe down -> wheel backward ---------------------
+	// -- 4. two-finger swipe down -> positive wheel ---------------------
 	reset_peaks();
 	mouse_clear_wheel();
 	push_finger(SDL_FINGERDOWN, 4, 0.50f, 0.30f);
@@ -499,7 +499,7 @@ int main(void)
 	push_finger(SDL_FINGERMOTION, 5, 0.60f, 0.40f);
 	int fwd, back;
 	mouse_get_wheel(&fwd, &back);
-	CHECK(back && !fwd, "two-finger swipe down -> wheel backward (backlog)");
+	CHECK(fwd && !back, "two-finger swipe down -> positive wheel (backlog)");
 	push_finger(SDL_FINGERUP, 4, 0.50f, 0.40f);
 	push_finger(SDL_FINGERUP, 5, 0.60f, 0.40f);
 	pump(8);

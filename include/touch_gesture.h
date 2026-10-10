@@ -36,7 +36,7 @@
  *   PENDING_TAP --finger up--> tap (VK_LBUTTON pulse)
  *
  * Two fingers (MULTI_TOUCH):
- *   swipe down            -> mouse wheel backward (opens the backlog)
+ *   swipe down            -> positive mouse wheel (opens the backlog)
  *   swipe up / long press -> VK_CONTROL held (text fast-forward)
  *   quick tap             -> VK_RBUTTON pulse (cancel)
  *
