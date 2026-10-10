@@ -21,6 +21,7 @@
  */
 
 #include <stddef.h>
+#include <stdlib.h>
 
 #include "touch_gesture.h"
 
@@ -61,15 +62,49 @@ static float multi_y0;        // average finger y at gesture start
 static float scroll_anchor;   // base y for scroll step accumulation
 static bool multi_moved;      // any real movement in this gesture
 
-// Output latches for one-shot events (absolute key states are derived
-// from the state machine in touch_gesture_poll()).
-static bool pulse_lbutton;
-static bool pulse_rbutton;
+// Button pulses retain their button and position in arrival order.
+// Each published pulse is followed by a release frame, including when
+// a new finger is already dragging or holding.
+struct button_pulse {
+	struct button_pulse *next;
+	bool right;
+	int x, y;
+};
+static struct button_pulse *pulse_head, *pulse_tail;
+static bool pulse_last_published;
+static int pulse_x, pulse_y;
 static int pending_wheel;
 static int game_x, game_y;
 
 // ---------------------------------------------------------------------------
 // Helpers
+
+static void clear_button_pulses(void)
+{
+	while (pulse_head) {
+		struct button_pulse *next = pulse_head->next;
+		free(pulse_head);
+		pulse_head = next;
+	}
+	pulse_tail = NULL;
+	pulse_last_published = false;
+	pulse_x = pulse_y = 0;
+}
+
+static void queue_button_pulse(bool right)
+{
+	struct button_pulse *pulse = malloc(sizeof(*pulse));
+	if (!pulse)
+		abort();
+	*pulse = (struct button_pulse) {
+		.right = right, .x = game_x, .y = game_y,
+	};
+	if (pulse_tail)
+		pulse_tail->next = pulse;
+	else
+		pulse_head = pulse;
+	pulse_tail = pulse;
+}
 
 static struct tracked_finger *find_finger(int64_t id)
 {
@@ -168,7 +203,7 @@ static void cancel_single_finger_action(void)
 // ---------------------------------------------------------------------------
 // State transitions
 
-static void enter_pending_tap(uint32_t now, uint32_t finger, float x, float y)
+static void enter_pending_tap(uint32_t now, int64_t finger, float x, float y)
 {
 	state = TG_PENDING_TAP;
 	primary_id = finger;
@@ -218,8 +253,7 @@ void touch_gesture_init(const struct tg_config *config)
 	nfingers = 0;
 	for (int i = 0; i < TG_MAX_TRACKED; i++)
 		fingers[i].active = false;
-	pulse_lbutton = false;
-	pulse_rbutton = false;
+	clear_button_pulses();
 	pending_wheel = 0;
 	game_x = 0;
 	game_y = 0;
@@ -230,6 +264,12 @@ void touch_gesture_shutdown(void)
 {
 	inited = false;
 	state = TG_IDLE;
+	nfingers = 0;
+	for (int i = 0; i < TG_MAX_TRACKED; i++)
+		fingers[i].active = false;
+	clear_button_pulses();
+	pending_wheel = 0;
+	game_x = game_y = 0;
 	haptic_hook = NULL;
 }
 
@@ -335,6 +375,8 @@ void touch_gesture_finger_up(uint32_t now, int64_t finger, float x, float y)
 	if (f) {
 		f->x = x;
 		f->y = y;
+		if (finger == primary_id)
+			update_game_pos();
 	}
 	if (nfingers > 0)
 		nfingers--;
@@ -344,7 +386,7 @@ void touch_gesture_finger_up(uint32_t now, int64_t finger, float x, float y)
 		if (finger == primary_id) {
 			// A tap (up before the hold timeout, without turning into
 			// a drag or a hold) delivers a one-frame left click.
-			pulse_lbutton = true;
+			queue_button_pulse(false);
 			state = TG_IDLE;
 		}
 		break;
@@ -361,8 +403,9 @@ void touch_gesture_finger_up(uint32_t now, int64_t finger, float x, float y)
 		if (nfingers <= 0) {
 			// Gesture finished. A quick two-finger tap with (almost)
 			// no movement cancels: one-frame right click.
-			if (mlock == MLOCK_NONE && !multi_moved && now - multi_t0 < cfg.hold_ms)
-				pulse_rbutton = true;
+			if (mlock == MLOCK_NONE && !multi_moved && now - multi_t0 < cfg.hold_ms) {
+				queue_button_pulse(true);
+			}
 			mlock = MLOCK_NONE;
 			state = TG_IDLE;
 		} else if (nfingers == 1) {
@@ -408,24 +451,41 @@ void touch_gesture_tick(uint32_t now)
 struct tg_output touch_gesture_poll(void)
 {
 	struct tg_output o = {0};
-	o.lbutton = state == TG_DRAGGING;
-	o.rbutton = state == TG_HOLDING;
-	o.control = state == TG_MULTI_TOUCH && mlock == MLOCK_FF;
-	o.lbutton_pulse = pulse_lbutton;
-	o.rbutton_pulse = pulse_rbutton;
+	if (pulse_last_published) {
+		// Release the previous pulse even if a new gesture is held.
+		pulse_last_published = false;
+	} else if (pulse_head) {
+		struct button_pulse *pulse = pulse_head;
+		o.lbutton_pulse = !pulse->right;
+		o.rbutton_pulse = pulse->right;
+		pulse_x = pulse->x;
+		pulse_y = pulse->y;
+		pulse_head = pulse->next;
+		if (!pulse_head)
+			pulse_tail = NULL;
+		free(pulse);
+		pulse_last_published = true;
+	} else {
+		// Resume the active gesture after the queued press/release pairs.
+		o.lbutton = state == TG_DRAGGING;
+		o.rbutton = state == TG_HOLDING;
+		o.control = state == TG_MULTI_TOUCH && mlock == MLOCK_FF;
+	}
 	o.wheel = pending_wheel;
-	o.game_x = game_x;
-	o.game_y = game_y;
-	pulse_lbutton = false;
-	pulse_rbutton = false;
+	touch_gesture_get_pos(&o.game_x, &o.game_y);
 	pending_wheel = 0;
 	return o;
+}
+
+bool touch_gesture_pulse_pending(void)
+{
+	return pulse_head || pulse_last_published;
 }
 
 void touch_gesture_get_pos(int *x, int *y)
 {
 	if (x)
-		*x = game_x;
+		*x = pulse_last_published ? pulse_x : game_x;
 	if (y)
-		*y = game_y;
+		*y = pulse_last_published ? pulse_y : game_y;
 }

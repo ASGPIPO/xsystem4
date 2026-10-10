@@ -103,13 +103,27 @@ void touch_gesture_finger_up(uint32_t now, int64_t finger, float x, float y);
 void touch_gesture_tick(uint32_t now);
 
 // Read the gesture output. Absolute key states persist across calls;
-// one-shot outputs (pulses and wheel) are cleared by this call.
+// one-shot outputs (pulses and wheel) are cleared by this call.  At
+// most one button pulse is handed out per call and never on two
+// consecutive calls: pulses queue up during rapid taps so each tap
+// reaches the game as its own one-frame press with its own position.
+// Held gesture output resumes after the queued press/release pairs.
 struct tg_output touch_gesture_poll(void);
 
+// True while a tap/cancel pulse is in flight: latched (finger up)
+// but not yet published, held back one frame by the pulse pacing, or
+// published by the most recent poll().  The input layer uses this to
+// keep the gesture position and the button ownership during a tap's
+// press frame (the press is published after the finger-up event was
+// processed, so the frame must not fall back to the synthesized
+// mouse position).
+bool touch_gesture_pulse_pending(void);
+
 // Non-destructive read of the primary finger position in game
-// coordinates (e.g. 1024x768). While no finger is down this returns the
-// last known position.  Unlike touch_gesture_poll() this never clears
-// one-shot outputs, so it is safe to call from mouse position queries.
+// coordinates (e.g. 1024x768). A published pulse owns the position for
+// its press frame; otherwise this reports the active finger, or its last
+// known position when no finger is down. Unlike touch_gesture_poll() this
+// never clears one-shot outputs, so it is safe in mouse position queries.
 void touch_gesture_get_pos(int *x, int *y);
 
 #endif /* SYSTEM4_TOUCH_GESTURE_H */

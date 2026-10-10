@@ -246,10 +246,15 @@ void mouse_get_pos(int *x, int *y)
 {
 #ifdef TOUCH_GESTURE_BUILD
 	// While the gesture engine owns the pointer (finger down, in any
-	// state), report the gesture-mapped position in game coordinates
-	// instead of the SDL mouse position.  TG_HOLDING reports the touch
-	// origin; a second finger must not move the game's cursor.
-	if (touch_gesture_inited && touch_gesture_get_state() != TG_IDLE) {
+	// state, or a tap pulse in flight), report the gesture-mapped
+	// position in game coordinates instead of the SDL mouse position.
+	// TG_HOLDING reports the touch origin; a second finger must not
+	// move the game's cursor.  A tap pulse outlives the finger: the
+	// press is published after the finger-up event was processed, so
+	// without the pulse check the game would read a stale synthesized
+	// mouse position on the very frame VK_LBUTTON turns true.
+	if (touch_gesture_inited && (touch_gesture_get_state() != TG_IDLE
+	                             || touch_gesture_pulse_pending())) {
 		touch_gesture_get_pos(x, y);
 		return;
 	}
@@ -372,6 +377,13 @@ static void apply_touch_gesture_output(void)
 	if (o.wheel)
 		wheel_dir = o.wheel;
 	bool touch_active = o.lbutton || o.rbutton || o.control || o.lbutton_pulse || o.rbutton_pulse;
+	// While a pulse is in flight (queued, held back by the pulse
+	// pacing, or just published) the gesture layer stays the owner of
+	// the button state until a poll consumes it completely, so
+	// physical key state cannot interleave with the tap's
+	// press/release pair.
+	if (touch_gesture_pulse_pending())
+		touch_active = true;
 	if (!touch_owns_buttons && !touch_active)
 		return;
 	key_state[VK_LBUTTON] = o.lbutton || o.lbutton_pulse;
@@ -694,10 +706,11 @@ static void fire_deferred_events(void)
 	uint32_t now = SDL_GetTicks();
 
 #ifdef TOUCH_GESTURE_BUILD
-	// Drive the touch gesture state machine and the power governor,
-	// then publish the gesture output to the System4 key state.
+	// Drive the touch gesture state machine and the power governor.
+	// The gesture output is published at the END of handle_events()
+	// (after the event loop), so a tap pulse latched by a finger-up
+	// becomes visible to the game in the same frame it arrived.
 	touch_gesture_tick(now);
-	apply_touch_gesture_output();
 	governor_tick(now);
 	gfx_flush_pending_present();
 #endif
@@ -720,16 +733,21 @@ static void fire_deferred_events(void)
 	// chunks bound the input latency (a finger or key event arriving
 	// during the sleep is pumped within one chunk), while the VM's
 	// Peek/Update spin loop stops burning CPU at full speed.
+	// Pending input is checked BEFORE the first delay chunk and after
+	// every chunk, so a tap that arrived earlier runs the full frame
+	// (event processing + gesture publication + render) immediately
+	// instead of waiting out the rest of the slot.
 	if (governor_power_save() && touch_gesture_get_state() == TG_IDLE
+			&& !touch_gesture_pulse_pending()
 			&& STAILQ_EMPTY(&deferred_keyevent_queue)) {
 		for (int guard = 0; guard < 64; guard++) {
+			SDL_PumpEvents();
+			if (SDL_HasEvents(SDL_FIRSTEVENT, SDL_LASTEVENT))
+				break;
 			uint32_t remain = governor_ms_until_next_frame(SDL_GetTicks());
 			if (remain == 0)
 				break;
 			SDL_Delay(remain > 10 ? 10 : remain);
-			SDL_PumpEvents();
-			if (SDL_HasEvents(SDL_FIRSTEVENT, SDL_LASTEVENT))
-				break;
 			if (!governor_power_save())
 				break;
 		}
@@ -972,6 +990,15 @@ void handle_events(void)
 			break;
 		}
 	}
+#ifdef TOUCH_GESTURE_BUILD
+	// Publish the gesture output AFTER the event loop: a pulse latched
+	// by a finger-up above must become visible (press + tap
+	// coordinates together) in THIS frame, not one frame later.
+	// Deferring to the next frame's fire_deferred_events() adds up to
+	// one full frame slot of tap latency (a whole 100 ms slot in
+	// power-save mode).
+	apply_touch_gesture_output();
+#endif
 	if (dbg_dap)
 		dbg_dap_handle_messages();
 }
