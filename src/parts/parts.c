@@ -23,6 +23,7 @@
 
 #include "asset_manager.h"
 #include "audio.h"
+#include "input.h"
 #include "vm/page.h"
 #include "xsystem4.h"
 #include "sact.h"
