@@ -65,6 +65,8 @@ static void frame(enum input_frame_source source)
 static void reset(void)
 {
 	SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
+	int reset_forward,reset_back;
+	mouse_get_wheel(&reset_forward,&reset_back);mouse_clear_wheel();
 	key_clear_flag(false);
 	struct tg_config cfg = { .screen_w=1024,.screen_h=768,
 		.viewport_w=1024,.viewport_h=768,.game_w=1024,.game_h=768,
@@ -256,6 +258,57 @@ int main(void)
 	frame(INPUT_FRAME_PARTS);handle_events();
 	CHECK(!query(VK_LBUTTON)&&!query(VK_RBUTTON)&&!query(VK_CONTROL),
 		"completed down-scroll does not become tap or cancel");
+
+	// Actual SYS_View_Update: Parts marker -> render poll -> Clear -> Peek.
+	// The actual input consumer later calls GetCount -> ClearCount.
+	reset();mouse_clear_wheel();
+	queue(SDL_FINGERDOWN,21,.30f,.30f);queue(SDL_FINGERDOWN,22,.60f,.30f);
+	queue(SDL_FINGERMOTION,21,.30f,.45f);queue(SDL_FINGERMOTION,22,.60f,.45f);
+	handle_events();
+	mouse_clear_wheel(); // SYS_View_Update 0x14dc66, before input GetCount
+	handle_events(); // Peek can pump again in the same logical frame
+	frame(INPUT_FRAME_PARTS);handle_events();mouse_clear_wheel();
+	mouse_get_wheel(&forward,&back);
+	CHECK(forward&&!back,"unread touch wheel survives real render Clear and later frame Clear");
+	int forward2,back2;
+	mouse_get_wheel(&forward2,&back2);
+	CHECK(forward2==forward&&back2==back&&forward2,
+		"separate wheel getters see the same delivered count before consumer Clear");
+	mouse_clear_wheel();handle_events();frame(INPUT_FRAME_PARTS);handle_events();
+	mouse_get_wheel(&forward,&back);
+	CHECK(!forward&&!back,"consumer Get then Clear prevents same-frame and next-frame replay");
+
+	// A fresh step after a getter must not be discarded by the old read's clear.
+	queue(SDL_FINGERMOTION,21,.30f,.60f);queue(SDL_FINGERMOTION,22,.60f,.60f);
+	frame(INPUT_FRAME_PARTS);handle_events();mouse_get_wheel(&forward,&back);
+	CHECK(forward&&!back,"new scroll step is delivered normally");
+	queue(SDL_FINGERMOTION,21,.30f,.75f);queue(SDL_FINGERMOTION,22,.60f,.75f);
+	frame(INPUT_FRAME_PARTS);handle_events();mouse_clear_wheel();
+	mouse_get_wheel(&forward,&back);
+	CHECK(forward&&!back,"old consumer Clear cannot discard newly staged unread touch step");
+	mouse_clear_wheel();
+	queue(SDL_FINGERUP,21,.30f,.75f);queue(SDL_FINGERUP,22,.60f,.75f);
+	frame(INPUT_FRAME_PARTS);handle_events();
+	mouse_get_wheel(&forward,&back);
+	CHECK(!forward&&!back,"finished and consumed touch wheel leaves no idle residue");
+
+	// Key_ClearFlag historically clears keys, not mouse wheel counts.
+	reset();queue(SDL_FINGERDOWN,23,.30f,.30f);queue(SDL_FINGERDOWN,24,.60f,.30f);
+	queue(SDL_FINGERMOTION,23,.30f,.45f);queue(SDL_FINGERMOTION,24,.60f,.45f);
+	handle_events();mouse_clear_wheel();key_clear_flag(false);
+	mouse_get_wheel(&forward,&back);
+	CHECK(forward&&!back,"key flags clear does not silently consume unread mouse wheel");
+	mouse_clear_wheel();
+
+	// Physical counter API retains its original unconditional clear behavior.
+	// Seed the counter: VM sdl2-compat changes pushed wheel y=-1 to polled y=0.
+	// This checks counter semantics, not physical-device or SDL queue delivery.
+	reset();wheel_dir=-1;
+	mouse_clear_wheel();mouse_get_wheel(&forward,&back);
+	CHECK(!forward&&!back,"unread physical counter is still cleared unconditionally");
+	wheel_dir=-1;mouse_get_wheel(&forward,&back);
+	CHECK(!forward&&back,"physical backward counter remains readable with idle touch");
+	mouse_clear_wheel();
 
 	// Other games retain SACT as their default marker, not sticky Parts.
 	reset();

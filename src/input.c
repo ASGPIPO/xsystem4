@@ -52,6 +52,8 @@ static bool touch_gesture_inited;
 static bool touch_frames_active;
 static bool touch_frame_polled;
 static bool touch_frame_pointer_owned;
+static int touch_wheel_dir;
+static bool touch_wheel_read;
 static struct tg_output touch_frame_output;
 #endif
 
@@ -318,13 +320,27 @@ static int wheel_dir = 0;
 
 void mouse_get_wheel(int *forward, int *back)
 {
-	*forward = wheel_dir > 0;
-	*back = wheel_dir < 0;
+	int dir = wheel_dir;
+#ifdef TOUCH_GESTURE_BUILD
+	// Render-time Clear calls must not discard a touch step before input reads it.
+	if (touch_wheel_dir) {
+		dir = touch_wheel_dir;
+		touch_wheel_read = true;
+	}
+#endif
+	*forward = dir > 0;
+	*back = dir < 0;
 }
 
 void mouse_clear_wheel(void)
 {
 	wheel_dir = 0;
+#ifdef TOUCH_GESTURE_BUILD
+	if (touch_wheel_read) {
+		touch_wheel_dir = 0;
+		touch_wheel_read = false;
+	}
+#endif
 }
 
 #ifdef TOUCH_GESTURE_BUILD
@@ -394,6 +410,8 @@ static void touch_gesture_ensure_init(void)
 		.scroll_step = 0.02f,
 	};
 	touch_gesture_init(&cfg);
+	touch_wheel_dir = 0;
+	touch_wheel_read = false;
 	touch_gesture_sync_geometry();
 	touch_gesture_set_haptic_hook(touch_gesture_haptic);
 	touch_gesture_inited = true;
@@ -422,7 +440,8 @@ static void apply_touch_gesture_output(void)
 	// Wheel is a one-shot, not a held key: apply it even while the
 	// gesture layer owns no buttons.
 	if (o.wheel) {
-		wheel_dir = o.wheel;
+		touch_wheel_dir = o.wheel;
+		touch_wheel_read = false;
 		touch_frame_output.wheel = 0;
 	}
 	bool touch_active = o.lbutton || o.rbutton || o.control || o.lbutton_pulse || o.rbutton_pulse;
