@@ -292,6 +292,7 @@ bool PE_BackPartsFlatBeginFrame(int parts_no, int state);
 bool PE_StepPartsFlatFinalFrame(int parts_no, int state);
 bool PE_SetPartsFlatSurfaceArea(int parts_no, int x, int y, int w, int h, int state);
 bool PE_SetPartsFlatAndStop(int parts_no, struct string *filename, int state);
+void PE_ChangeFlatCG(int parts_no, struct string *old_name, struct string *new_name, int state);
 bool PE_StopPartsFlat(int parts_no, int state);
 bool PE_StartPartsFlat(int parts_no, int state);
 bool PE_GoFramePartsFlat(int parts_no, int frame_no, int state);

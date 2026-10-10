@@ -981,6 +981,38 @@ bool PE_SetPartsFlatAndStop(int parts_no, struct string *filename, int state)
 	return result;
 }
 
+void PE_ChangeFlatCG(int parts_no, struct string *old_name, struct string *new_name, int state)
+{
+	if (state < 1 || state > PARTS_NR_STATES || !old_name || !new_name)
+		return;
+
+	struct parts *parts = parts_try_get(parts_no);
+	if (!parts || parts->states[state - 1].type != PARTS_FLAT)
+		return;
+	struct parts_flat *f = &parts->states[state - 1].flat;
+	if (!f->flat || !f->textures)
+		return;
+
+	int index = parts_flat_find_library(f->flat, old_name->text);
+	if (index < 0 || (size_t)index >= f->nr_libraries
+			|| f->flat->libraries[index].type != FLAT_LIB_CG) {
+		WARNING("flat: CG library '%s' not found", display_sjis0(old_name->text));
+		return;
+	}
+	struct cg *cg = asset_cg_load_by_name(new_name->text, NULL);
+	if (!cg) {
+		WARNING("flat: failed to load replacement CG '%s'", display_sjis0(new_name->text));
+		return;
+	}
+
+	Texture replacement = {0};
+	gfx_init_texture_with_cg(&replacement, cg);
+	cg_free(cg);
+	gfx_delete_texture(&f->textures[index]);
+	f->textures[index] = replacement;
+	parts_dirty(parts);
+}
+
 bool PE_StopPartsFlat(int parts_no, int state)
 {
 	if (!parts_state_valid(--state))
