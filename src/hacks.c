@@ -290,11 +290,72 @@ static void apply_daibanchou_hacks(struct ain *ain)
 	}
 }
 
+// Rance 03 (Chinese translation)
+// -------------------------------
+// DamageEffect::playSound kept the original Japanese prefix length, but the
+// translated "battle effect/" prefix has fewer characters. Correct only this
+// verified instruction sequence in the loaded AIN; leave the file untouched.
+static void apply_rance03_chinese_hacks(struct ain *ain)
+{
+	const char prefix[] = "\xd5\xbd\xb6\xb7\xcc\xd8\xd0\xa7/";
+	if (ain->version != 6 || ain->nr_strings <= 1252
+			|| ain->strings[1252]->size != sizeof(prefix) - 1
+			|| strcmp(ain->strings[1252]->text, prefix))
+		return;
+
+	int fno = ain_get_function(ain, "DamageEffect@playSound");
+	if (fno < 0)
+		return;
+	size_t address = ain->functions[fno].address;
+	if (address >= ain->code_size)
+		return;
+
+	// The buffer writer reserves an extra byte at its capacity boundary.
+	uint8_t expected[48];
+	struct buffer pattern;
+	buffer_init(&pattern, expected, sizeof(expected));
+	write_instruction0(&pattern, PUSHLOCALPAGE);
+	write_instruction1(&pattern, PUSH, 0);
+	write_instruction0(&pattern, REF);
+	write_instruction0(&pattern, PUSHSTRUCTPAGE);
+	write_instruction1(&pattern, PUSH, 5);
+	write_instruction0(&pattern, S_REF);
+	size_t index_operand = pattern.index + 2;
+	write_instruction1(&pattern, PUSH, 8);
+	write_instruction0(&pattern, PUSHSTRUCTPAGE);
+	write_instruction1(&pattern, PUSH, 5);
+	write_instruction0(&pattern, S_LENGTH);
+	size_t length_operand = pattern.index + 2;
+	write_instruction1(&pattern, PUSH, 8);
+	write_instruction0(&pattern, SUB);
+	write_instruction0(&pattern, S_GETPART);
+
+	size_t end = ain->code_size;
+	for (int i = 0; i < ain->nr_functions; i++) {
+		size_t next = ain->functions[i].address;
+		if (next > address && next < end)
+			end = next;
+	}
+	if (end - address < pattern.index
+			|| memcmp(ain->code + address, expected, pattern.index))
+		return;
+
+	struct buffer out;
+	buffer_init(&out, ain->code, ain->code_size);
+	int prefix_length = sjis_count_char(ain->strings[1252]->text);
+	buffer_write_int32_at(&out, address + index_operand, prefix_length);
+	buffer_write_int32_at(&out, address + length_operand, prefix_length);
+	NOTICE("Rance03: corrected translated battle sound prefix length to %d", prefix_length);
+}
+
 void apply_game_specific_hacks(struct ain *ain)
 {
 	char *game_name = sjis2utf(config.game_name, 0);
 	if (!strcmp(game_name, "大番長")) {
 		apply_daibanchou_hacks(ain);
+	} else if (!strcmp(game_name, "兰斯03")
+			&& sjis_get_encoding() == SJIS_ENCODING_CP936) {
+		apply_rance03_chinese_hacks(ain);
 	} else if (!strcmp(game_name, "Rance 02")) {
 		apply_rance02_hacks(ain);
 	} else if (!strcmp(game_name, "Rance6")) {
