@@ -997,6 +997,7 @@ void parts_release(int parts_no)
 	struct parts *parts = slot->value;
 	parts_input_reset_drag(parts);
 	parts_clear_motion(parts);
+	parts_vscrollbar_free(parts);
 	for (int i = 0; i < PARTS_NR_STATES; i++) {
 		parts_state_free(&parts->states[i]);
 	}
@@ -1022,6 +1023,7 @@ void parts_release(int parts_no)
 
 void parts_release_all(void)
 {
+	PE_ActivityReset();
 	while (!TAILQ_EMPTY(&parts_list)) {
 		struct parts *parts = TAILQ_FIRST(&parts_list);
 		parts_release(parts->no);

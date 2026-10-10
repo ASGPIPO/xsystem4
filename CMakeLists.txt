@@ -105,6 +105,8 @@ target_sources(xsystem4 PRIVATE
   src/dungeon/skybox.c
   src/dungeon/tes.c
 
+  src/parts/activity.c
+  src/parts/vscrollbar.c
   src/parts/construction.c
   src/parts/debug.c
   src/parts/flash.c

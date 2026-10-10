@@ -87,6 +87,9 @@ static void parts_update_mouse(struct parts *parts, Point cur_pos, bool cur_clic
 	if (!parts_began_click)
 		return;
 
+	parts_vscrollbar_mouse(parts, cur_pos, cur_clicking, prev_clicking,
+			is_hovered, !*click_consumed);
+
 	if (is_hovered && !was_hovered) {
 		parts_msg_push(parts, PARTS_MSG_MOUSE_ENTER, "ii", cur_pos.x, cur_pos.y);
 		parts->hover_time = 0;

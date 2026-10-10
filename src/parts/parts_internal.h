@@ -400,6 +400,8 @@ struct parts_params {
 	int alpha_clipper_parts_no;
 };
 
+struct parts_vscrollbar;
+
 struct parts {
 	struct sprite sp;
 	enum parts_state_type state;
@@ -437,11 +439,25 @@ struct parts {
 	int margin_right;
 	struct parts_motion_list motion;
 	int controller_no;
+	struct parts_vscrollbar *vscrollbar;
 };
 
 #define PARTS_LIST_FOREACH(iter) TAILQ_FOREACH(iter, &parts_list, parts_list_entry)
 #define PARTS_LIST_FOREACH_REVERSE(iter) TAILQ_FOREACH_REVERSE(iter, &parts_list, parts_list, parts_list_entry)
 #define PARTS_FOREACH_CHILD(iter, parent) TAILQ_FOREACH(iter, &parent->children, child_list_entry)
+
+
+struct parts_vscrollbar {
+	struct string *cg_name;
+	int width, height;
+	int up, down;
+	int total, view, pos, move;
+	bool dragging;
+	int drag_offset;
+};
+void parts_vscrollbar_mouse(struct parts *parts, Point mouse, bool clicking,
+		bool was_clicking, bool hovered, bool click_available);
+void parts_vscrollbar_free(struct parts *parts);
 
 // parts.c
 extern struct parts_list parts_list;
@@ -549,6 +565,7 @@ enum parts_message_type {
 	PARTS_MSG_KEY_TRIGGER    = 14,
 	PARTS_MSG_KEY_DOWN       = 15,
 	PARTS_MSG_KEY_UP         = 17,
+	PARTS_MSG_SCROLL         = 20,
 };
 
 void parts_msg_push(struct parts* parts, int type, const char *fmt, ...);

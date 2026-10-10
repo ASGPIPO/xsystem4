@@ -320,4 +320,39 @@ int PE_get_layoutbox_padding_bottom(int parts_no);
 int PE_get_layoutbox_padding_left(int parts_no);
 int PE_get_layoutbox_padding_right(int parts_no);
 
+
+/* Activity PACTEX templates */
+bool PE_ReadActivityFile(struct string *name, struct string *filename);
+bool PE_IsExistActivity(struct string *name);
+int PE_NumofActivityParts(struct string *name);
+bool PE_GetActivityParts(int index, struct string *name, struct string **part_name, int *number);
+bool PE_IsExistActivityPartsByName(struct string *name, struct string *part_name);
+int PE_GetActivityPartsNumber(struct string *name, struct string *part_name);
+bool PE_IsExistActivityIntentData(struct string *name, struct string *part_name);
+int PE_NumofActivityEndKey(struct string *name);
+int PE_GetActivityEndKey(struct string *name, int index);
+bool PE_ReleaseActivity(struct string *name, struct page **erased);
+void PE_ActivityReset(void);
+
+/* Vertical scrollbar component */
+bool PE_CreateVScrollbar(int number, struct string *cg_name, int width, int height,
+		int up, int down, int total, int view, int pos, int move);
+void PE_SetVScrollbarSize(int number, int width, int height);
+void PE_SetVScrollbarUpHeight(int number, int height);
+void PE_SetVScrollbarDownHeight(int number, int height);
+void PE_SetVScrollbarTotalSize(int number, int size);
+void PE_SetVScrollbarViewSize(int number, int size);
+void PE_SetVScrollbarScrollPos(int number, int pos);
+void PE_SetVScrollbarScrollRate(int number, float rate);
+void PE_SetVScrollbarMoveSizeByButton(int number, int size);
+void PE_SetVScrollbarCGName(int number, struct string *name);
+void PE_GetVScrollbarCGName(int number, struct string **name);
+int PE_GetVScrollbarUpHeight(int number);
+int PE_GetVScrollbarDownHeight(int number);
+int PE_GetVScrollbarTotalSize(int number);
+int PE_GetVScrollbarViewSize(int number);
+int PE_GetVScrollbarScrollPos(int number);
+float PE_GetVScrollbarScrollRate(int number);
+int PE_GetVScrollbarMoveSizeByButton(int number);
+
 #endif /* SYSTEM4_PARTS_H */
