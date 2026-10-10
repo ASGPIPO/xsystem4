@@ -19,6 +19,7 @@
 #include "system4/ain.h"
 #include "system4/string.h"
 
+#include "asset_manager.h"
 #include "vm/heap.h"
 #include "vm/page.h"
 #include "parts.h"
@@ -27,6 +28,13 @@
 #ifdef RANCE03_SKIP_MOVIES
 #include "xsystem4.h"
 #endif
+
+static bool PartsEngine_IsExistActivityFile(struct string *filename)
+{
+	if (!filename)
+		return false;
+	return asset_exists_by_name(ASSET_PACT, filename->text, NULL);
+}
 
 static void PartsEngine_ModuleInit(void)
 {
@@ -432,6 +440,7 @@ HLL_LIBRARY(PartsEngine,
 	    // FIXME: what is the difference?
 	    HLL_EXPORT(GetFreeSystemPartsNumberNotSaved, PE_GetFreeNumber),
 	    HLL_EXPORT(IsExistParts, PE_IsExist),
+	    HLL_EXPORT(IsExistActivityFile, PartsEngine_IsExistActivityFile),
 	    HLL_EXPORT(SetWantSaveBackScene, PE_SetWantSaveBackScene),
 	    HLL_EXPORT(IsWantSaveBackScene, PE_IsWantSaveBackScene),
 	    HLL_EXPORT(SetPartsCG, PE_SetPartsCG),
