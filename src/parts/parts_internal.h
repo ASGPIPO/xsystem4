@@ -430,6 +430,7 @@ struct parts {
 	int linked_to;
 	int linked_from;
 	bool is_hovered;
+	bool is_focused;
 	int hover_time;
 	int draw_filter;
 	bool message_window;
@@ -565,6 +566,8 @@ enum parts_message_type {
 	PARTS_MSG_KEY_TRIGGER    = 14,
 	PARTS_MSG_KEY_DOWN       = 15,
 	PARTS_MSG_KEY_UP         = 17,
+	PARTS_MSG_FOCUS          = 18,
+	PARTS_MSG_LOST_FOCUS     = 19,
 	PARTS_MSG_SCROLL         = 20,
 };
 

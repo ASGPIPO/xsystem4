@@ -23,7 +23,7 @@ static void *bound(const char *name) {
 int main(void) {
  setbuf(stdout,NULL); sjis_set_encoding(SJIS_ENCODING_CP936);
  int err; ain=ain_open("/root/rance03/Rance03.ain",&err); assert(ain);
- const char *required[]={"IsExistActivity","ReadActivityFile","NumofActivityParts","GetActivityParts","IsExistActivityPartsByName","GetActivityPartsNumber","NumofActivityEndKey","GetActivityEndKey","IsExistActivityIntentData","GetComponentAbsoluteMaxPosZ","GetComponentAbsolutePosZ","GetComponentAbsolutePosX","GetComponentAbsolutePosY"};
+ const char *required[]={"IsExistActivity","ReadActivityFile","NumofActivityParts","GetActivityParts","IsExistActivityPartsByName","GetActivityPartsNumber","NumofActivityEndKey","GetActivityEndKey","IsExistActivityIntentData","GetComponentAbsoluteMaxPosZ","GetComponentAbsolutePosZ","GetComponentAbsolutePosX","GetComponentAbsolutePosY","SetFocus","IsFocus"};
  for(unsigned i=0;i<sizeof(required)/sizeof(required[0]);i++) if(!bound(required[i])) {
   fprintf(stderr,"FAIL real AIN requires unbound PartsEngine.%s\n",required[i]); return 1;
  }
@@ -87,17 +87,30 @@ int main(void) {
  assert(total&&view&&pos&&rate&&settotal&&setview&&setpos&&setrate);
  assert(total(ids[3])==528&&view(ids[3])==22&&pos(ids[3])==0);
  PE_SetDelegateIndex(ids[3],42);PE_ReleaseMessage();
- settotal(ids[3],100);setview(ids[3],20);setpos(ids[3],999);assert(pos(ids[3])==80);
+ settotal(ids[3],7);setview(ids[3],22);setpos(ids[3],7);
+ assert(pos(ids[3])==7&&rate(ids[3])==1.0f);
+ assert(PE_GetMessageType()==20&&PE_GetMessageVariableInt(0)==7&&PE_GetMessageVariableInt(1)==7);
+ PE_ReleaseMessage();
+ void (*setfocus)(int)=bound("SetFocus");bool (*isfocus)(int)=bound("IsFocus");
+ setfocus(ids[3]);assert(isfocus(ids[3])&&!isfocus(ids[4]));
+ assert(PE_GetMessageType()==18&&PE_GetMessageVariableCount()==0);PE_ReleaseMessage();
+ setfocus(ids[3]);assert(PE_GetMessageType()==0);
+ PE_SetDelegateIndex(ids[4],43);setfocus(ids[4]);
+ assert(!isfocus(ids[3])&&isfocus(ids[4]));
+ assert(PE_GetMessageType()==19&&PE_GetMessagePartsNumber()==ids[3]&&PE_GetMessageVariableCount()==0);PE_PopMessage();
+ assert(PE_GetMessageType()==18&&PE_GetMessagePartsNumber()==ids[4]&&PE_GetMessageVariableCount()==0);PE_ReleaseMessage();
+
+ settotal(ids[3],100);setview(ids[3],20);setpos(ids[3],999);assert(pos(ids[3])==100);
  assert(PE_GetMessageType()==20);assert(PE_GetMessagePartsNumber()==ids[3]);assert(PE_GetMessageDelegateIndex()==42);
  assert(PE_GetMessageVariableCount()==2&&PE_GetMessageVariableType(0)==1&&PE_GetMessageVariableType(1)==1);
- assert(PE_GetMessageVariableInt(0)==80&&PE_GetMessageVariableInt(1)==100);PE_ReleaseMessage();
- setpos(ids[3],-5);assert(pos(ids[3])==0);setrate(ids[3],0.5f);assert(pos(ids[3])==40&&rate(ids[3])==0.5f);
+ assert(PE_GetMessageVariableInt(0)==100&&PE_GetMessageVariableInt(1)==100);PE_ReleaseMessage();
+ setpos(ids[3],-5);assert(pos(ids[3])==0);setrate(ids[3],0.5f);assert(pos(ids[3])==50&&rate(ids[3])==0.5f);
  struct parts *bar=parts_try_get(ids[3]);assert(bar&&bar->vscrollbar);
  parts_vscrollbar_mouse(bar,(Point){986,375},true,false,true,true);
  parts_vscrollbar_mouse(bar,(Point){986,200},true,true,true,true);assert(pos(ids[3])==0);
- parts_vscrollbar_mouse(bar,(Point){986,1000},true,true,false,true);assert(pos(ids[3])==80);
+ parts_vscrollbar_mouse(bar,(Point){986,1000},true,true,false,true);assert(pos(ids[3])==100);
  parts_vscrollbar_mouse(bar,(Point){986,1000},false,true,false,true);assert(!bar->vscrollbar->dragging);
- setview(ids[3],1000);assert(pos(ids[3])==0);assert(rate(ids[3])==0.0f);
+ setview(ids[3],1000);assert(pos(ids[3])==100);assert(rate(ids[3])==1.0f);
  int dynamic=PE_GetFreeNumber();PE_SetPos(dynamic,1,2);PE_SetParentPartsNumber(dynamic,ids[0]);PE_UpdateComponent(0);
  struct page *erased=NULL;
  bool (*release)(struct string*,struct page**)=bound("ReleaseActivity");assert(release);

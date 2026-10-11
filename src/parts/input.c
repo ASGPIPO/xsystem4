@@ -353,3 +353,26 @@ bool PE_IsCursorIn(int parts_no, int mouse_x, int mouse_y, int state)
 	Point mouse_pos = { mouse_x, mouse_y };
 	return parts_hittest(parts, state, mouse_pos);
 }
+
+void PE_SetFocus(int parts_no)
+{
+	struct parts *target = parts_try_get(parts_no);
+	if (!target || target->is_focused)
+		return;
+
+	struct parts *parts;
+	PARTS_LIST_FOREACH(parts) {
+		if (parts->controller_no == target->controller_no && parts->is_focused) {
+			parts->is_focused = false;
+			parts_msg_push(parts, PARTS_MSG_LOST_FOCUS, "");
+		}
+	}
+	target->is_focused = true;
+	parts_msg_push(target, PARTS_MSG_FOCUS, "");
+}
+
+bool PE_IsFocus(int parts_no)
+{
+	struct parts *parts = parts_try_get(parts_no);
+	return parts && parts->is_focused;
+}

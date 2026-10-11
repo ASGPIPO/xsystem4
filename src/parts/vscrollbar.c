@@ -16,7 +16,8 @@ static struct parts_vscrollbar *get_bar(int number)
 }
 static int max_pos(struct parts_vscrollbar *b)
 {
-	return max(0,b->total-b->view);
+	// Rance03 passes NumofLine as both total and the terminal position.
+	return b->total;
 }
 static int track_height(struct parts_vscrollbar *b)
 {
