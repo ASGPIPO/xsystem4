@@ -2223,6 +2223,24 @@ int PE_parts_get_absolute_z(int parts_no)
 	return parts ? parts->global.z : 0;
 }
 
+
+static int parts_absolute_max_z(struct parts *parts)
+{
+	int result = parts->global.z;
+	struct parts *child;
+	PARTS_FOREACH_CHILD(child, parts) {
+		result = max(result, parts_absolute_max_z(child));
+	}
+	return result;
+}
+
+int PE_parts_get_absolute_max_z(int parts_no)
+{
+	PE_UpdateComponent(0);
+	struct parts *parts = parts_try_get(parts_no);
+	return parts ? parts_absolute_max_z(parts) : 0;
+}
+
 void PE_parts_set_lock_input_state(int parts_no, bool lock)
 {
 	parts_get(parts_no)->lock_input_state = lock;

@@ -338,3 +338,41 @@ bool PE_SetTextLineSpace(int parts_no, int line_space, int state)
 }
 
 
+
+void PE_GetPartsTextFontProperty(int parts_no, int *face, int *size,
+		int *r, int *g, int *b, float *bold, int *er, int *eg, int *eb,
+		float *edge, int state)
+{
+	*face = *size = *r = *g = *b = *er = *eg = *eb = 0;
+	*bold = *edge = 0.0f;
+	if (!parts_state_valid(--state))
+		return;
+	struct parts *parts = parts_try_get(parts_no);
+	if (!parts || parts->states[state].type != PARTS_TEXT)
+		return;
+	struct text_style *ts = &parts->states[state].text.ts;
+	*face = ts->face;
+	*size = ts->size;
+	*r = ts->color.r; *g = ts->color.g; *b = ts->color.b;
+	*bold = ts->bold_width;
+	*er = ts->edge_color.r; *eg = ts->edge_color.g; *eb = ts->edge_color.b;
+	*edge = ts->edge_left;
+}
+
+int PE_GetTextCharSpace(int parts_no, int state)
+{
+	if (!parts_state_valid(--state))
+		return 0;
+	struct parts *parts = parts_try_get(parts_no);
+	return parts && parts->states[state].type == PARTS_TEXT
+		? parts->states[state].text.ts.font_spacing : 0;
+}
+
+int PE_GetTextLineSpace(int parts_no, int state)
+{
+	if (!parts_state_valid(--state))
+		return 0;
+	struct parts *parts = parts_try_get(parts_no);
+	return parts && parts->states[state].type == PARTS_TEXT
+		? parts->states[state].text.line_space : 0;
+}

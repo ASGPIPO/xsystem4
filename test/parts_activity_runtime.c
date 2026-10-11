@@ -23,7 +23,7 @@ static void *bound(const char *name) {
 int main(void) {
  setbuf(stdout,NULL); sjis_set_encoding(SJIS_ENCODING_CP936);
  int err; ain=ain_open("/root/rance03/Rance03.ain",&err); assert(ain);
- const char *required[]={"IsExistActivity","ReadActivityFile","NumofActivityParts","GetActivityParts","IsExistActivityPartsByName","GetActivityPartsNumber","NumofActivityEndKey","GetActivityEndKey","IsExistActivityIntentData"};
+ const char *required[]={"IsExistActivity","ReadActivityFile","NumofActivityParts","GetActivityParts","IsExistActivityPartsByName","GetActivityPartsNumber","NumofActivityEndKey","GetActivityEndKey","IsExistActivityIntentData","GetComponentAbsoluteMaxPosZ","GetComponentAbsolutePosZ","GetComponentAbsolutePosX","GetComponentAbsolutePosY"};
  for(unsigned i=0;i<sizeof(required)/sizeof(required[0]);i++) if(!bound(required[i])) {
   fprintf(stderr,"FAIL real AIN requires unbound PartsEngine.%s\n",required[i]); return 1;
  }
@@ -55,6 +55,31 @@ int main(void) {
  assert(PE_GetPartsOriginPosMode(ids[3])==3);
  assert(PE_GetPartsOriginPosMode(ids[4])==3);
  assert(PE_GetPartsX(ids[3])==1009&&PE_GetPartsY(ids[3])==110);
+ int (*absmax)(int)=bound("GetComponentAbsoluteMaxPosZ");
+ int (*absz)(int)=bound("GetComponentAbsolutePosZ");
+ float (*absx)(int)=bound("GetComponentAbsolutePosX");
+ float (*absy)(int)=bound("GetComponentAbsolutePosY");
+ PE_SetZ(outside,1000);PE_SetZ(ids[0],10);PE_SetPos(ids[0],11,12);
+ assert(absz(ids[0])==10&&absz(ids[3])==13&&absmax(ids[0])==16);
+ assert(absmax(ids[3])==13&&absmax(-99)==0&&absz(-99)==0);
+ assert(absx(ids[3])==1020.0f&&absy(ids[3])==122.0f);
+ int negative=PE_GetFreeNumber();PE_SetZ(negative,-20);
+ assert(absmax(negative)==-20);PE_ReleaseParts(negative);
+ int type=-1,size=-1,r=-1,g=-1,b=-1,er=-1,eg=-1,eb=-1;float bold=-1,edge=-1;
+ void (*getfont)(int,int*,int*,int*,int*,int*,float*,int*,int*,int*,float*,int)=bound("GetPartsTextFontProperty");
+ int (*charspace)(int,int)=bound("Parts_GetTextCharSpace");
+ int (*linespace)(int,int)=bound("Parts_GetTextLineSpace");
+ assert(getfont&&charspace&&linespace);
+ getfont(ids[5],&type,&size,&r,&g,&b,&bold,&er,&eg,&eb,&edge,1);
+ assert(type==256&&size==22&&r==255&&g==255&&b==255&&bold==0&&edge==0);
+ assert(charspace(ids[5],1)==0&&linespace(ids[5],1)==2);
+ PE_SetTextCharSpace(ids[5],-2,1);PE_SetTextLineSpace(ids[5],5,1);
+ assert(charspace(ids[5],1)==-2&&linespace(ids[5],1)==5);
+ PE_SetFont(ids[5],0,17,10,20,30,0.3f,1,2,3,0.8f,1);
+ getfont(ids[5],&type,&size,&r,&g,&b,&bold,&er,&eg,&eb,&edge,1);
+ assert(type==0&&size==17&&r==10&&g==20&&b==30&&bold==0.3f&&er==1&&eg==2&&eb==3&&edge==0.8f);
+ PE_SetPos(ids[0],0,0);PE_SetZ(ids[0],1);
+
  int (*total)(int)=bound("GetVScrollbarTotalSize");int (*view)(int)=bound("GetVScrollbarViewSize");
  int (*pos)(int)=bound("GetVScrollbarScrollPos");float (*rate)(int)=bound("GetVScrollbarScrollRate");
  void (*settotal)(int,int)=bound("SetVScrollbarTotalSize");void (*setview)(int,int)=bound("SetVScrollbarViewSize");

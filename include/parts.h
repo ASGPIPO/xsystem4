@@ -142,6 +142,7 @@ int PE_get_movie_sprite(int parts_no, int state);
 float PE_parts_get_absolute_x(int parts_no);
 float PE_parts_get_absolute_y(int parts_no);
 int PE_parts_get_absolute_z(int parts_no);
+int PE_parts_get_absolute_max_z(int parts_no);
 void PE_parts_set_lock_input_state(int parts_no, bool lock);
 
 // construction.c
@@ -269,6 +270,12 @@ bool PE_SetPartsFontEdgeColor(int parts_no, int r, int g, int b, int state);
 bool PE_SetPartsFontEdgeWeight(int parts_no, float edge_weight, int state);
 bool PE_SetTextCharSpace(int parts_no, int char_space, int state);
 bool PE_SetTextLineSpace(int parts_no, int line_space, int state);
+
+void PE_GetPartsTextFontProperty(int parts_no, int *face, int *size,
+		int *r, int *g, int *b, float *bold, int *er, int *eg, int *eb,
+		float *edge, int state);
+int PE_GetTextCharSpace(int parts_no, int state);
+int PE_GetTextLineSpace(int parts_no, int state);
 
 // flash.c
 bool PE_ExistsFlashFile(struct string *flash_filename);
