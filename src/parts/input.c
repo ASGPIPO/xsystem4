@@ -15,6 +15,7 @@
  */
 
 #include "system4.h"
+#include "system4/string.h"
 
 #include "asset_manager.h"
 #include "audio.h"
@@ -33,6 +34,8 @@ static bool prev_clicking = false;
 static int clicked_parts = 0;
 // the current (partially) clicked parts number
 static int click_down_parts = 0;
+// sound played when an active click does not hit a part
+static int click_miss_sound = -1;
 
 // drag state
 static struct parts *drag_parts = NULL;
@@ -236,9 +239,8 @@ void PE_UpdateInputState(int passed_time)
 		}
 		drag_state_reset();
 
-		if (!click_down_parts) {
-			// TODO: play misclick sound
-		}
+		if (parts_began_click && !click_down_parts && click_miss_sound >= 0)
+			audio_play_sound(click_miss_sound);
 		click_down_parts = 0;
 	}
 
@@ -313,10 +315,30 @@ bool PE_SetPartsClickSoundNumber(int parts_no, int sound_no)
 	return true;
 }
 
-bool PE_SetClickMissSoundNumber(possibly_unused int sound_no)
+bool PE_SetClickMissSoundNumber(int sound_no)
 {
-	UNIMPLEMENTED("(%d)", sound_no);
+	if (sound_no != -1 && !asset_exists(ASSET_SOUND, sound_no)) {
+		WARNING("Invalid sound number: %d", sound_no);
+		return false;
+	}
+	click_miss_sound = sound_no;
 	return true;
+}
+
+void PE_SetClickMissSoundName(struct string *name)
+{
+	if (!name)
+		return;
+	if (!name->size) {
+		PE_SetClickMissSoundNumber(-1);
+		return;
+	}
+	int number;
+	if (!asset_exists_by_name(ASSET_SOUND, name->text, &number)) {
+		WARNING("Invalid click miss sound name");
+		return;
+	}
+	PE_SetClickMissSoundNumber(number);
 }
 
 void PE_BeginInput(void)
