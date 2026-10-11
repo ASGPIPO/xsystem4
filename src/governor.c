@@ -79,14 +79,18 @@ void governor_mark_scene_dirty(void)
 
 void governor_note_render_request(uint32_t now)
 {
-	if (!inited || gstate != GOV_POWER_SAVE)
+	if (!inited)
+		return;
+	// Every swap is render activity, even if the input pump already
+	// restored active mode because scene_is_dirty was set.
+	last_input_ms = now;
+	if (gstate != GOV_POWER_SAVE)
 		return;
 	// Something wants to animate while the scene was judged static:
 	// go back to full rate (self-correcting: a truly static scene
 	// stops requesting swaps and drops back to power save).
 	gstate = GOV_ACTIVE;
 	force_render = true;
-	last_input_ms = now;
 }
 
 void governor_tick(uint32_t now)

@@ -22,12 +22,15 @@
  * Power governor for the Android port.
  *
  * Mobile games spend most of their time on a static screen (reading).
- * The governor watches two activity signals:
+ * The governor watches three activity signals:
  *
  *   - the input timestamp (fed by the input layer on every touch/key
  *     event), and
  *   - the scene dirty flag (scene_is_dirty in scene.c, plus explicit
- *     governor_mark_scene_dirty() calls from render-side hooks).
+ *     governor_mark_scene_dirty() calls from render-side hooks), and
+ *
+ *   - render requests at gfx_swap(), which extend the active interval
+ *     even after scene_is_dirty is cleared for the completed frame.
  *
  * and switches between two modes:
  *
@@ -71,9 +74,9 @@ void governor_shutdown(void);
 void governor_mark_input(uint32_t now);
 void governor_mark_scene_dirty(void);
 
-// Render-side hook: call on every swap request (from gfx_swap). A swap
-// request while in power save means something is animating, so the
-// governor returns to active mode immediately.
+// Render-side hook: call on every swap request (from gfx_swap) to keep
+// render activity alive across clean input pumps. A request while in
+// power save also returns the governor to active mode immediately.
 void governor_note_render_request(uint32_t now);
 
 // Milliseconds until the next power-save frame slot is due (0 in
