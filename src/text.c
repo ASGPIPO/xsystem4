@@ -102,7 +102,12 @@ static struct font *get_font(unsigned face)
 	if (face > 255) {
 		face -= 256;
 		if (face >= MAX_FNL_FONTS || !font_fnl[face]) {
-			WARNING("Invalid fnl face: %u", face);
+			static bool warned[MAX_FNL_FONTS] = {0};
+			if (face >= MAX_FNL_FONTS || !warned[face]) {
+				if (face < MAX_FNL_FONTS)
+					warned[face] = true;
+				WARNING("Invalid fnl face: %u", face);
+			}
 			return font_ttf[0];
 		}
 		return font_fnl[face];

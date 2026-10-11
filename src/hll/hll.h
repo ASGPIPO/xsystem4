@@ -28,7 +28,11 @@ void static_library_replace(struct static_library *lib, const char *name, void *
 
 #define HLL_WARN_UNIMPLEMENTED(rval, rtype, libname, fname, ...)	\
 	static rtype libname ## _ ## fname(__VA_ARGS__) {		\
-		WARNING("Unimplemented HLL function: " #libname "." #fname); \
+		static bool unimplemented_warned = false;		\
+		if (!unimplemented_warned) {				\
+			unimplemented_warned = true;			\
+			WARNING("Unimplemented HLL function: " #libname "." #fname); \
+		}							\
 		return rval;						\
 	}
 

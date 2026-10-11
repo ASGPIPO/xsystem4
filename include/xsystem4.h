@@ -70,7 +70,13 @@ void indent_message(int indent, const char *fmt, ...);
 void log_message(const char *log, const char *fmt, ...);
 
 #define UNIMPLEMENTED(fmt, ...) \
-	sys_warning("unimplemented: %s" fmt "\n", __func__, ##__VA_ARGS__)
+	do { \
+		static bool unimplemented_warned = false; \
+		if (!unimplemented_warned) { \
+			unimplemented_warned = true; \
+			sys_warning("unimplemented: %s" fmt "\n", __func__, ##__VA_ARGS__); \
+		} \
+	} while (0)
 
 bool is_absolute_path(const char *path);
 char *unix_path(const char *path);
