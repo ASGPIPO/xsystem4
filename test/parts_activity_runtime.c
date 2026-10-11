@@ -23,7 +23,7 @@ static void *bound(const char *name) {
 int main(void) {
  setbuf(stdout,NULL); sjis_set_encoding(SJIS_ENCODING_CP936);
  int err; ain=ain_open("/root/rance03/Rance03.ain",&err); assert(ain);
- const char *required[]={"IsExistActivity","ReadActivityFile","NumofActivityParts","GetActivityParts","IsExistActivityPartsByName","GetActivityPartsNumber","NumofActivityEndKey","GetActivityEndKey","IsExistActivityIntentData","GetComponentAbsoluteMaxPosZ","GetComponentAbsolutePosZ","GetComponentAbsolutePosX","GetComponentAbsolutePosY","SetFocus","IsFocus"};
+ const char *required[]={"IsExistActivity","ReadActivityFile","NumofActivityParts","GetActivityParts","IsExistActivityPartsByName","GetActivityPartsNumber","NumofActivityEndKey","GetActivityEndKey","IsExistActivityIntentData","GetComponentAbsoluteMaxPosZ","GetComponentAbsolutePosZ","GetComponentAbsolutePosX","GetComponentAbsolutePosY","SetFocus","IsFocus","AddChild"};
  for(unsigned i=0;i<sizeof(required)/sizeof(required[0]);i++) if(!bound(required[i])) {
   fprintf(stderr,"FAIL real AIN requires unbound PartsEngine.%s\n",required[i]); return 1;
  }
@@ -111,6 +111,30 @@ int main(void) {
  parts_vscrollbar_mouse(bar,(Point){986,1000},true,true,false,true);assert(pos(ids[3])==100);
  parts_vscrollbar_mouse(bar,(Point){986,1000},false,true,false,true);assert(!bar->vscrollbar->dragging);
  setview(ids[3],1000);assert(pos(ids[3])==100);assert(rate(ids[3])==1.0f);
+ settotal(ids[3],7);setview(ids[3],22);setpos(ids[3],7);PE_ReleaseMessage();
+ {int track=bar->vscrollbar->height-bar->vscrollbar->up-bar->vscrollbar->down;
+  int thumb=(int)((long long)track*22/(7+22));if(thumb<16)thumb=16;if(thumb>track)thumb=track;
+  int travel=track-thumb;assert(travel>0);
+  int oy=bar->global.pos.y+bar->states[0].common.origin_offset.y;
+  parts_vscrollbar_mouse(bar,(Point){986,oy+bar->vscrollbar->up+travel+thumb/2},true,false,true,true);
+  assert(bar->vscrollbar->dragging);
+  parts_vscrollbar_mouse(bar,(Point){986,oy},true,true,true,true);assert(pos(ids[3])==0&&rate(ids[3])==0.0f);
+  assert(PE_GetMessageType()==20&&PE_GetMessagePartsNumber()==ids[3]&&PE_GetMessageVariableCount()==2&&PE_GetMessageVariableInt(0)==0&&PE_GetMessageVariableInt(1)==7);PE_ReleaseMessage();
+  parts_vscrollbar_mouse(bar,(Point){986,oy+track},true,true,false,true);assert(pos(ids[3])==7&&rate(ids[3])==1.0f);
+  assert(PE_GetMessageType()==20&&PE_GetMessageVariableInt(0)==7&&PE_GetMessageVariableInt(1)==7);PE_ReleaseMessage();
+  parts_vscrollbar_mouse(bar,(Point){986,0},false,true,false,true);assert(!bar->vscrollbar->dragging);}
+ {void (*addchild)(int,int)=bound("AddChild");
+  int box=PE_GetFreeNumber();PE_SetPos(box,50,60);PE_SetComponentType(box,8,1);
+  int l1=PE_GetFreeNumber();PE_SetPos(l1,1,2);
+  int l2=PE_GetFreeNumber();PE_SetPos(l2,3,4);
+  addchild(box,l1);addchild(box,l2);PE_UpdateComponent(0);
+  struct parts *bp=parts_try_get(box);assert(bp&&bp->states[0].type==PARTS_LAYOUT_BOX);
+  struct parts *it;int order[2],n=0;
+  PARTS_FOREACH_CHILD(it,bp){if(n<2)order[n]=it->no;n++;}
+  assert(n==2&&order[0]==l1&&order[1]==l2);
+  assert(PE_GetParentPartsNumber(l1)==box&&PE_GetParentPartsNumber(l2)==box);
+  assert(absx(l1)==50.0f&&absy(l1)==60.0f);
+  PE_ReleaseParts(l1);PE_ReleaseParts(l2);PE_ReleaseParts(box);}
  int dynamic=PE_GetFreeNumber();PE_SetPos(dynamic,1,2);PE_SetParentPartsNumber(dynamic,ids[0]);PE_UpdateComponent(0);
  struct page *erased=NULL;
  bool (*release)(struct string*,struct page**)=bound("ReleaseActivity");assert(release);
@@ -120,6 +144,6 @@ int main(void) {
  assert(!release(name,&erased));
  assert(readfile(name,file));assert(count(name)==7);parts_release_all();assert(!exists(name));
  free_string(s);free_string(name);
- printf("PASS real PACTEX 7 parts, exact endkeys, names/coordinates/origins, Scroll20 two-int delegate ABI, scrollbar bounds/rate/drag, scoped dynamic descendant release, bottom-level reset\n");
+ printf("PASS real PACTEX 7 parts, exact endkeys, names/coordinates/origins, Scroll20 two-int delegate ABI, focus state switch, short 7/22 drag to both ends, AddChild ordered parenting, scrollbar bounds/rate/drag, scoped dynamic descendant release, bottom-level reset\n");
  return 0;
 }

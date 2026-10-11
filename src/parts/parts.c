@@ -1875,6 +1875,11 @@ void PE_SetParentPartsNumber(int parts_no, int parent_parts_no)
 	parts_component_dirty(parts);
 }
 
+void PE_AddChild(int parent_parts_no, int parts_no)
+{
+	PE_SetParentPartsNumber(parts_no, parent_parts_no);
+}
+
 int PE_GetParentPartsNumber(int parts_no)
 {
 	struct parts *parts = parts_get(parts_no);

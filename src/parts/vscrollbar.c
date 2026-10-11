@@ -25,9 +25,11 @@ static int track_height(struct parts_vscrollbar *b)
 }
 static int thumb_height(struct parts_vscrollbar *b)
 {
+	// Rance03 scrolls NumofLine over a total+view line space, so short
+	// histories (total <= view) still need a draggable thumb.
 	int track = track_height(b);
-	if (b->total <= b->view || b->total <= 0) return track;
-	return min(track,max(min(16,track),(int)((int64_t)track*b->view/b->total)));
+	if (b->total + b->view <= 0) return track;
+	return min(track,max(min(16,track),(int)((int64_t)track*b->view/(b->total+b->view))));
 }
 static int thumb_offset(struct parts_vscrollbar *b)
 {
