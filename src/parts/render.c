@@ -144,13 +144,17 @@ static void parts_render_text(struct parts *parts, struct parts_text *t)
 
 static void parts_render_cg(struct parts *parts, struct parts_common *common)
 {
+	float rot_x = glm_rad(-parts->global.rotation.x);
+	float rot_y = glm_rad(parts->global.rotation.y);
+	if (cosf(rot_x) * cosf(rot_y) <= 0.000001f)
+		return;
+
 	set_draw_filter_blend_func(parts->draw_filter);
 
 	mat4 mw_transform = GLM_MAT4_IDENTITY_INIT;
 	glm_translate(mw_transform, (vec3) { parts->global.pos.x, parts->global.pos.y, 0 });
-	// FIXME: need perspective for 3D rotate
-	//glm_rotate_x(mw_transform, parts->rotation.x, mw_transform);
-	//glm_rotate_y(mw_transform, parts->rotation.y, mw_transform);
+	glm_rotate_x(mw_transform, rot_x, mw_transform);
+	glm_rotate_y(mw_transform, rot_y, mw_transform);
 	glm_rotate_z(mw_transform, glm_rad(parts->local.rotation.z), mw_transform);
 	glm_scale(mw_transform, (vec3){ parts->global.scale.x, parts->global.scale.y, 1.0 });
 	glm_translate(mw_transform, (vec3){ common->origin_offset.x, common->origin_offset.y, 0 });
@@ -173,6 +177,9 @@ static void parts_render_cg(struct parts *parts, struct parts_common *common)
 		glm_scale(mw_transform, (vec3){ common->w, common->h, 1.0 });
 		break;
 	}
+
+	// Parts are drawn on a 2D surface; rotated depth must not clip the quad.
+	mw_transform[0][2] = mw_transform[1][2] = mw_transform[2][2] = mw_transform[3][2] = 0.0f;
 
 	Rectangle r = common->surface_area;
 	if (!r.w && !r.h) {

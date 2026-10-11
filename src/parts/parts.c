@@ -1922,13 +1922,11 @@ float PE_GetPartsMagY(int parts_no)
 
 void PE_SetPartsRotateX(int parts_no, float rot_x)
 {
-	UNIMPLEMENTED("(%d, %f)", parts_no, rot_x);
 	parts_set_rotation_x(parts_get(parts_no), rot_x);
 }
 
 void PE_SetPartsRotateY(int parts_no, float rot_y)
 {
-	UNIMPLEMENTED("(%d, %f)", parts_no, rot_y);
 	parts_set_rotation_y(parts_get(parts_no), rot_y);
 }
 
