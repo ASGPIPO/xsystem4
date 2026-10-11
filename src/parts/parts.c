@@ -1784,18 +1784,49 @@ int PE_GetPartsY(int parts_no)
 	return parts_get(parts_no)->local.pos.y;
 }
 
+static void parts_measure_layout(struct parts *parts)
+{
+	struct parts *child;
+	TAILQ_FOREACH(child, &dirty_list, dirty_list_entry) {
+		if (child->pending_parent != parts->no)
+			continue;
+		struct parts *ancestor = parts;
+		while (ancestor && ancestor != child)
+			ancestor = ancestor->parent;
+		if (ancestor)
+			continue;
+		if (child->parent)
+			TAILQ_REMOVE(&child->parent->children, child, child_list_entry);
+		child->parent = parts;
+		TAILQ_INSERT_TAIL(&parts->children, child, child_list_entry);
+		child->pending_parent = -1;
+		parts_component_dirty(parts);
+	}
+	PARTS_FOREACH_CHILD(child, parts) {
+		if (child->states[0].type == PARTS_LAYOUT_BOX)
+			parts_measure_layout(child);
+	}
+	parts_do_layout(parts);
+}
+
 int PE_GetPartsWidth(int parts_no, int state)
 {
 	if (!parts_state_valid(--state))
 		return 0;
-	return parts_get(parts_no)->states[state].common.w;
+	struct parts *parts = parts_get(parts_no);
+	if (parts->states[state].type == PARTS_LAYOUT_BOX)
+		parts_measure_layout(parts);
+	return parts->states[state].common.w;
 }
 
 int PE_GetPartsHeight(int parts_no, int state)
 {
 	if (!parts_state_valid(--state))
 		return 0;
-	return parts_get(parts_no)->states[state].common.h;
+	struct parts *parts = parts_get(parts_no);
+	if (parts->states[state].type == PARTS_LAYOUT_BOX)
+		parts_measure_layout(parts);
+	return parts->states[state].common.h;
 }
 
 int PE_GetPartsUpperLeftPosX(int parts_no, int state)

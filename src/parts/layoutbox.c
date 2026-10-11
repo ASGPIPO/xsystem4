@@ -259,6 +259,8 @@ void parts_do_layout(struct parts *parts)
 	else
 		parts_layout_calc_size_vertical(lb, parts, &total_w, &total_h);
 
+	parts_set_dims(parts, &lb->common, total_w, total_h);
+
 	int align = lb->align;
 	bool is_left   = (align == 1 || align == 4 || align == 7);
 	bool is_right  = (align == 3 || align == 6 || align == 9);
