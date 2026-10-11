@@ -19,8 +19,18 @@
 extern struct static_library lib_PartsEngine;
 static bool pressed;
 static int pointer_x = 900, pointer_y = 700;
-static int plays, last_sound;
+static int plays, last_sound, invalid_sound_lookups;
 extern bool __real_audio_play_sound(int number);
+extern bool __real_asset_exists(enum asset_type type, int number);
+
+bool __wrap_asset_exists(enum asset_type type, int number)
+{
+	if (type == ASSET_SOUND && number <= 0) {
+		invalid_sound_lookups++;
+		return false;
+	}
+	return __real_asset_exists(type, number);
+}
 
 bool __wrap_audio_play_sound(int number)
 {
@@ -153,6 +163,11 @@ int main(void)
 	set_name(missing);
 	set_name(NULL);
 	assert(!set_number(INT_MAX));
+	int invalid_before = invalid_sound_lookups;
+	assert(!set_number(0));
+	assert(!set_number(-2));
+	assert(!set_number(INT_MIN));
+	assert(invalid_sound_lookups == invalid_before);
 	click(true, 1);
 	assert(last_sound == number);
 	assert(set_number(-1));

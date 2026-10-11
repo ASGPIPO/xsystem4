@@ -321,7 +321,7 @@ bool PE_SetPartsClickSoundNumber(int parts_no, int sound_no)
 
 bool PE_SetClickMissSoundNumber(int sound_no)
 {
-	if (sound_no != -1 && !asset_exists(ASSET_SOUND, sound_no)) {
+	if (sound_no != -1 && (sound_no <= 0 || !asset_exists(ASSET_SOUND, sound_no))) {
 		WARNING("Invalid sound number: %d", sound_no);
 		return false;
 	}
