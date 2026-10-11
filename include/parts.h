@@ -344,6 +344,10 @@ int PE_GetActivityEndKey(struct string *name, int index);
 bool PE_ReleaseActivity(struct string *name, struct page **erased);
 void PE_ActivityReset(void);
 
+/* Button component */
+void PE_SetButtonSize(int number, int width, int height);
+void PE_SetButtonText(int number, struct string *text);
+
 /* Vertical scrollbar component */
 bool PE_CreateVScrollbar(int number, struct string *cg_name, int width, int height,
 		int up, int down, int total, int view, int pos, int move);
