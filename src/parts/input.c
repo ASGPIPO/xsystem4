@@ -56,6 +56,8 @@ static bool parts_hittest(struct parts *parts, int state, Point pos)
 
 static void drag_state_reset(void)
 {
+	if (drag_parts && drag_parts->hscrollbar)
+		drag_parts->hscrollbar->dragging = false;
 	drag_parts = NULL;
 	is_dragging = false;
 	drop_target = NULL;
@@ -91,6 +93,8 @@ static void parts_update_mouse(struct parts *parts, Point cur_pos, bool cur_clic
 		return;
 
 	parts_vscrollbar_mouse(parts, cur_pos, cur_clicking, prev_clicking,
+			is_hovered, !*click_consumed);
+	parts_hscrollbar_mouse(parts, cur_pos, cur_clicking, prev_clicking,
 			is_hovered, !*click_consumed);
 
 	if (is_hovered && !was_hovered) {

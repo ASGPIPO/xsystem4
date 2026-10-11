@@ -401,6 +401,7 @@ struct parts_params {
 };
 
 struct parts_vscrollbar;
+struct parts_hscrollbar;
 
 struct parts {
 	struct sprite sp;
@@ -441,6 +442,7 @@ struct parts {
 	struct parts_motion_list motion;
 	int controller_no;
 	struct parts_vscrollbar *vscrollbar;
+	struct parts_hscrollbar *hscrollbar;
 };
 
 #define PARTS_LIST_FOREACH(iter) TAILQ_FOREACH(iter, &parts_list, parts_list_entry)
@@ -459,6 +461,19 @@ struct parts_vscrollbar {
 void parts_vscrollbar_mouse(struct parts *parts, Point mouse, bool clicking,
 		bool was_clicking, bool hovered, bool click_available);
 void parts_vscrollbar_free(struct parts *parts);
+
+struct parts_hscrollbar {
+	struct string *cg_name;
+	int width, height;
+	int left, right;
+	int total, view, pos, move;
+	int thumb_min_width;
+	bool dragging;
+	int drag_offset;
+};
+void parts_hscrollbar_mouse(struct parts *parts, Point mouse, bool clicking,
+		bool was_clicking, bool hovered, bool click_available);
+void parts_hscrollbar_free(struct parts *parts);
 
 // parts.c
 extern struct parts_list parts_list;
