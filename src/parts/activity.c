@@ -157,6 +157,26 @@ static bool load_button(int number, struct ex_tree *t)
 	PE_SetClickable(number,integer(t,"\xd3\xd0\xd0\xa7" /* 有效 */,1));
 	return true;
 }
+static bool load_checkbox(int number, struct ex_tree *t)
+{
+	return PE_CreateCheckBox(number,text(t,"\x43\x47\xc3\xfb"),
+			vector(t,"\xb3\xdf\xb4\xe7",0,0),vector(t,"\xb3\xdf\xb4\xe7",1,0),
+			integer(t,"\x43\x68\x65\x63\x6b\xd7\xb4\xcc\xac",0),integer(t,"\xb0\xb4\xc5\xa5\xc4\xa3\xca\xbd",0),
+			vector(t,"\xb0\xb4\xc5\xa5\xd1\xd5\xc9\xab",0,255),vector(t,"\xb0\xb4\xc5\xa5\xd1\xd5\xc9\xab",1,255),
+			vector(t,"\xb0\xb4\xc5\xa5\xd1\xd5\xc9\xab",2,255));
+}
+static bool load_layout_box(int number, struct ex_tree *t)
+{
+	if (integer(t,"\xbb\xbb\xd0\xd0\xb3\xdf\xb4\xe7\xa4\xf2\xa5\xec\xa9\x60\xa5\xc8\xa4\xc8\xa4\xb7\xa4\xc6\xd5\x4a\xd7\x52\xa4\xb9\xa4\xeb",0))
+		return false;
+	PE_SetComponentType(number,8,1);
+	PE_SetLayoutBoxLayoutType(number,integer(t,"\xb2\xbc\xbe\xd6\xc0\xe0\xd0\xcd",0));
+	PE_SetLayoutBoxReturn(number,integer(t,"\xbb\xbb\xd0\xd0\xd0\xed\xbf\xc9",0),integer(t,"\xbb\xbb\xd0\xd0\xb3\xdf\xb4\xe7",0));
+	PE_SetLayoutBoxAlign(number,integer(t,"\xd6\xc3\xb7\xc5",1));
+	PE_set_layoutbox_padding(number,vector(t,"\xa5\xd1\xa5\xc7\xa5\xa3\xa5\xf3\xa5\xb0",0,0),vector(t,"\xa5\xd1\xa5\xc7\xa5\xa3\xa5\xf3\xa5\xb0",1,0),
+			vector(t,"\xa5\xd1\xa5\xc7\xa5\xa3\xa5\xf3\xa5\xb0",2,0),vector(t,"\xa5\xd1\xa5\xc7\xa5\xa3\xa5\xf3\xa5\xb0",3,0));
+	return true;
+}
 static bool load_component(int number, struct ex_tree *t)
 {
 	struct ex_tree *kind = child(t,"\xb7\x4e\xee\x90\x84\x65\xc7\xe9\x88\xf3" /* 種類別情報 */);
@@ -168,6 +188,16 @@ static bool load_component(int number, struct ex_tree *t)
 			&& load_state(number,child(kind,"\xb0\xb4\xbc\xfc\xb0\xb4\xcf\xc2\xd7\xb4\xcc\xac" /* 按键按下状态 */),3);
 	case 0:
 		return load_button(number,kind);
+	case 1:
+		return load_checkbox(number,kind);
+	case 8:
+		return load_layout_box(number,kind);
+	case 3:
+		return PE_CreateHScrollbar(number,text(kind,"\x43\x47\xc3\xfb" /* CG名 */),
+				integer(kind,"\xb3\xa4\xb6\xc8" /* 长度 */,0),integer(kind,"\xb7\xf9" /* 幅 */,0),
+				integer(kind,"\xc7\xb0\xb3\xdf\xb4\xe7" /* 前尺寸 */,0),integer(kind,"\xb4\xce\xb3\xdf\xb4\xe7" /* 次尺寸 */,0),
+				integer(kind,"\xc8\xab\xcc\xe5\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf" /* 全体スクロール量 */,0),integer(kind,"\xcf\xd4\xca\xbe\xc1\xbf" /* 显示量 */,0),
+				integer(kind,"\xb9\xf6\xb6\xaf\xce\xbb\xd6\xc3" /* 滚动位置 */,0),integer(kind,"\xb0\xb4\xc5\xa5\xb5\xe3\xbb\xf7\xd2\xc6\xb6\xaf\xc1\xbf" /* 按钮点击移动量 */,1));
 	case 2:
 		return PE_CreateVScrollbar(number,text(kind,"\x43\x47\xc3\xfb" /* CG名 */),
 				integer(kind,"\xb7\xf9" /* 幅 */,0),integer(kind,"\xb3\xa4\xb6\xc8" /* 长度 */,0),
@@ -198,6 +228,7 @@ static bool load_tree(struct parts_activity *a, struct ex_tree *t, int parent)
 	PE_SetAlpha(number,integer(t,"Alpha",255));
 	PE_SetAddColor(number,vector(t,"\xbc\xd3\xcb\xe3\xc9\xab" /* 加算色 */,0,0),vector(t,"\xbc\xd3\xcb\xe3\xc9\xab" /* 加算色 */,1,0),vector(t,"\xbc\xd3\xcb\xe3\xc9\xab" /* 加算色 */,2,0));
 	PE_SetMultiplyColor(number,vector(t,"\x81\x5c\xcb\xe3\xc9\xab" /* 乗算色 */,0,255),vector(t,"\x81\x5c\xcb\xe3\xc9\xab" /* 乗算色 */,1,255),vector(t,"\x81\x5c\xcb\xe3\xc9\xab" /* 乗算色 */,2,255));
+	parts_checkbox_apply_color(parts_get(number));
 	PE_SetPartsDrawFilter(number,integer(t,"\xbb\xe6\xd6\xc6\xc2\xcb\xbe\xb5" /* 绘制滤镜 */,0));
 	PE_SetPartsMagX(number,vector(t,"\x92\x88\xb4\xf3\xbf\x73\xd0\xa1" /* 拡大縮小 */,0,1));
 	PE_SetPartsMagY(number,vector(t,"\x92\x88\xb4\xf3\xbf\x73\xd0\xa1" /* 拡大縮小 */,1,1));

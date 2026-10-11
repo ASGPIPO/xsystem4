@@ -999,6 +999,7 @@ void parts_release(int parts_no)
 	parts_clear_motion(parts);
 	parts_vscrollbar_free(parts);
 	parts_hscrollbar_free(parts);
+	parts_checkbox_free(parts);
 	for (int i = 0; i < PARTS_NR_STATES; i++) {
 		parts_state_free(&parts->states[i]);
 	}

@@ -402,6 +402,7 @@ struct parts_params {
 
 struct parts_vscrollbar;
 struct parts_hscrollbar;
+struct parts_checkbox;
 
 struct parts {
 	struct sprite sp;
@@ -443,12 +444,23 @@ struct parts {
 	int controller_no;
 	struct parts_vscrollbar *vscrollbar;
 	struct parts_hscrollbar *hscrollbar;
+	struct parts_checkbox *checkbox;
 };
 
 #define PARTS_LIST_FOREACH(iter) TAILQ_FOREACH(iter, &parts_list, parts_list_entry)
 #define PARTS_LIST_FOREACH_REVERSE(iter) TAILQ_FOREACH_REVERSE(iter, &parts_list, parts_list, parts_list_entry)
 #define PARTS_FOREACH_CHILD(iter, parent) TAILQ_FOREACH(iter, &parent->children, child_list_entry)
 
+
+struct parts_checkbox {
+	struct string *cg_name;
+	int width, height;
+	bool checked;
+	int red, green, blue;
+};
+void parts_checkbox_free(struct parts *parts);
+void parts_checkbox_apply_color(struct parts *parts);
+void parts_checkbox_toggle(struct parts *parts);
 
 struct parts_vscrollbar {
 	struct string *cg_name;

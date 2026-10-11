@@ -349,6 +349,13 @@ void PE_ActivityReset(void);
 void PE_SetButtonSize(int number, int width, int height);
 void PE_SetButtonText(int number, struct string *text);
 
+/* Checkbox component */
+bool PE_CreateCheckBox(int number, struct string *cg_name, int width, int height,
+		bool checked, int mode, int red, int green, int blue);
+void PE_CheckBoxChecked(int number, bool checked);
+bool PE_IsCheckBoxChecked(int number);
+void PE_SetCheckBoxColor(int number, int red, int green, int blue);
+
 /* Horizontal scrollbar component */
 bool PE_CreateHScrollbar(int number, struct string *cg_name, int width, int height,
 		int left, int right, int total, int view, int pos, int move);

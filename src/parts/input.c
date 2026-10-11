@@ -162,6 +162,7 @@ static void parts_update_mouse(struct parts *parts, Point cur_pos, bool cur_clic
 			&& click_down_parts == parts->no) {
 		audio_play_sound(parts->on_click_sound);
 		clicked_parts = parts->no;
+		parts_checkbox_toggle(parts);
 
 		parts_msg_push(parts, PARTS_MSG_MOUSE_CLICK,
 				"iii", cur_pos.x, cur_pos.y, VK_LBUTTON);
