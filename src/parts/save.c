@@ -15,8 +15,13 @@
  */
 
 #include "system4.h"
+#include "system4/cg.h"
 #include "system4/string.h"
 #include "system4/archive.h"
+#include "system4/utfsjis.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 #include "vm/page.h"
 #include "asset_manager.h"
@@ -704,8 +709,27 @@ static void load_numeral_fonts(struct iarray_reader *r)
 		struct parts_numeral_font *font = &parts_numeral_fonts[i];
 		font->type = iarray_read(r);
 		font->cg_no = iarray_read(r);
+		bool all_zero = true;
 		for (int i = 0; i < 12; i++) {
 			font->width[i] = iarray_read(r);
+			if (font->width[i] != 0)
+				all_zero = false;
+		}
+		if (all_zero && font->type == PARTS_NUMERAL_FONT_COMBINED && font->cg_no > 0) {
+			struct archive_data *data = asset_get(ASSET_CG, font->cg_no);
+			if (data) {
+				char *prefix = utf2sjis("系统／数字／幅１７／", 0);
+				struct cg_metrics metrics;
+				if (prefix && data->name
+						&& !strncmp(data->name, prefix, strlen(prefix))
+						&& cg_get_metrics_data(data, &metrics)
+						&& metrics.w == 170 && metrics.h == 26) {
+					for (int digit = 0; digit < 10; digit++)
+						font->width[digit] = 17;
+				}
+				free(prefix);
+				archive_free_data(data);
+			}
 		}
 		parts_numeral_font_init(font);
 	}
