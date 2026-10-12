@@ -129,6 +129,20 @@ HLL_WARN_UNIMPLEMENTED(false, bool, SystemService, SetUsePower2Texture, bool use
 HLL_WARN_UNIMPLEMENTED(true, bool, SystemService, SetAntiAliasingMode, int mode);
 //int SystemService_GetAntiAliasingMode(void);
 
+static void SystemService_Debug_SetShowMipmapLevel(bool show)
+{
+	static bool warned;
+	if (show && !warned) {
+		WARNING("Mipmap level visualization is unavailable");
+		warned = true;
+	}
+}
+
+static bool SystemService_Debug_IsShowMipmapLevel(void)
+{
+	return false;
+}
+
 enum window_settings_asect_ratio {
 	ASPECT_RATIO_NORMAL,
 	ASPECT_RATIO_FIXED
@@ -617,6 +631,8 @@ HLL_LIBRARY(SystemService,
 	    HLL_EXPORT(GetScreenInfo, SystemService_GetScreenInfo),
 	    HLL_EXPORT(RestrainScreensaver, SystemService_RestrainScreensaver),
 	    HLL_TODO_EXPORT(Debug_GetUseVideoMemorySize, SystemService_Debug_GetUseVideoMemorySize),
+	    HLL_EXPORT(Debug_SetShowMipmapLevel, SystemService_Debug_SetShowMipmapLevel),
+	    HLL_EXPORT(Debug_IsShowMipmapLevel, SystemService_Debug_IsShowMipmapLevel),
 	    HLL_EXPORT(Rance0123456789, SystemService_Rance0123456789),
 	    HLL_EXPORT(XXXXX01XXXXXXXX, SystemService_XXXXX01XXXXXXXX),
 	    HLL_EXPORT(GetSystemBufferName, SystemService_GetSystemBufferName),
