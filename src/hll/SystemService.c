@@ -275,7 +275,11 @@ static int mouse_cursor_config[NR_MOUSE_CURSOR_CONFIG] = {0};
 static bool SystemService_SetMouseCursorConfig(int type, int value)
 {
 	if (type < 0 || type >= NR_MOUSE_CURSOR_CONFIG) {
-		WARNING("Invalid mouse cursor config type: %d", type);
+		static bool warned;
+		if (!warned) {
+			warned = true;
+			WARNING("Invalid mouse cursor config type: %d", type);
+		}
 		return false;
 	}
 	mouse_cursor_config[type] = value;
@@ -285,7 +289,11 @@ static bool SystemService_SetMouseCursorConfig(int type, int value)
 static bool SystemService_GetMouseCursorConfig(int type, int *value)
 {
 	if (type < 0 || type >= NR_MOUSE_CURSOR_CONFIG) {
-		WARNING("Invalid mouse cursor config type: %d", type);
+		static bool warned;
+		if (!warned) {
+			warned = true;
+			WARNING("Invalid mouse cursor config type: %d", type);
+		}
 		return false;
 	}
 	// XXX: the value returned here is always 1 or 0
