@@ -197,6 +197,7 @@ static void PartsEngine_add_construction_process(union vm_value *ints,
 				dx, dy, dw, dh, r, g, b, state);
 		break;
 	case 11:  // CASConstructionProcess::SetCutCGBlend (equal scale)
+	case 19:  // CASConstructionProcess::SetCutCGAlphaBlend (equal scale)
 		PE_AddDrawCutCGToPartsConstructionProcess(parts_no, cg_name,
 				dx, dy, dw, dh, sx, sy, dw, dh,
 				interp_type, state);
@@ -382,10 +383,8 @@ static int PartsEngine_PartsFunc(int func_id, struct page **array_int,
 #undef REQUIRE_INTS
 }
 
-// Rance03 camp drawing-board: named HLL exports wrapping the construction
-// process opcode (PartsFunc canonical id 162). They call the internal helper
-// directly to bypass the rance9 func-id remap in PartsEngine_PartsFunc.
-static int PartsEngine_AddPartsConstructionProcess(struct page **array_int,
+// Rance03 calls this directly, without the Rance9 PartsFunc id remapping.
+static void PartsEngine_AddPartsConstructionProcess(struct page **array_int,
 		struct page **array_float, struct page **array_string)
 {
 	int nr_ints = (array_int && *array_int) ? (*array_int)->nr_vars : 0;
@@ -398,15 +397,7 @@ static int PartsEngine_AddPartsConstructionProcess(struct page **array_int,
 		VM_ERROR("Invalid arguments for AddPartsConstructionProcess: expected 32 ints, >=2 floats, >=2 strings; got %d/%d/%d",
 			 nr_ints, nr_floats, nr_strings);
 	PartsEngine_add_construction_process(ints, floats, strings);
-	return 1;
 }
-
-// No known Rance03 game path reads a construction process back (the camp
-// drawing-board block is on the Add call); honest warn-once placeholder
-// returning 0 until real-device testing shows otherwise.
-HLL_WARN_UNIMPLEMENTED(0, int, PartsEngine, GetPartsConstructionProcess,
-		struct page **array_int, struct page **array_float,
-		struct page **array_string);
 
 HLL_WARN_UNIMPLEMENTED(, void, PartsEngine, StopSoundWithoutSystemSound);
 
@@ -639,10 +630,7 @@ HLL_LIBRARY(PartsEngine,
 	    HLL_EXPORT(Load, PE_Load),
 	    // Rance 9
 	    HLL_EXPORT(PartsFunc, PartsEngine_PartsFunc),
-	    // Rance03 camp drawing-board (露营地画板): named exports called by
-	    // AFL_Parts_AddConstructProcess / AFL_Parts_GetConstructProcess
 	    HLL_EXPORT(AddPartsConstructionProcess, PartsEngine_AddPartsConstructionProcess),
-	    HLL_EXPORT(GetPartsConstructionProcess, PartsEngine_GetPartsConstructionProcess),
 	    HLL_EXPORT(Release, PE_ReleaseParts),
 	    HLL_TODO_EXPORT(ReleaseAll, PartsEngine_ReleaseAll),
 	    HLL_EXPORT(ReleaseAllWithoutSystem, PE_ReleaseAllWithoutSystem),
