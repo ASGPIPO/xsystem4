@@ -20,6 +20,7 @@
 #include "system4/archive.h"
 #include "system4/utfsjis.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -718,16 +719,27 @@ static void load_numeral_fonts(struct iarray_reader *r)
 		if (all_zero && font->type == PARTS_NUMERAL_FONT_COMBINED && font->cg_no > 0) {
 			struct archive_data *data = asset_get(ASSET_CG, font->cg_no);
 			if (data) {
-				char *prefix = utf2sjis("系统／数字／幅１７／", 0);
-				struct cg_metrics metrics;
-				if (prefix && data->name
-						&& !strncmp(data->name, prefix, strlen(prefix))
-						&& cg_get_metrics_data(data, &metrics)
-						&& metrics.w == 170 && metrics.h == 26) {
-					for (int digit = 0; digit < 10; digit++)
-						font->width[digit] = 17;
+				char *name = data->name ? sjis2utf(data->name, 0) : NULL;
+				const char *prefix = "系统／数字／幅";
+				if (name && !strncmp(name, prefix, strlen(prefix))) {
+					const unsigned char *p = (unsigned char *)name + strlen(prefix);
+					int width = 0;
+					while (p[0] == 0xef && p[1] == 0xbc && p[2] >= 0x90 && p[2] <= 0x99) {
+						if (width > (INT_MAX - 9) / 10)
+							break;
+						width = width * 10 + (p[2] - 0x90);
+						p += 3;
+					}
+					struct cg_metrics metrics;
+					if (width > 0 && width <= INT_MAX / 10
+							&& !strncmp((const char *)p, "／", strlen("／"))
+							&& cg_get_metrics_data(data, &metrics)
+							&& metrics.w == width * 10 && metrics.h > 0) {
+						for (int digit = 0; digit < 10; digit++)
+							font->width[digit] = width;
+					}
 				}
-				free(prefix);
+				free(name);
 				archive_free_data(data);
 			}
 		}

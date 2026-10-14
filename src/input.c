@@ -857,9 +857,15 @@ static void handle_window_event(SDL_Event *e)
 		break;
 	case SDL_WINDOWEVENT_FOCUS_GAINED:
 		keyboard_focus = true;
+#ifdef TOUCH_GESTURE_BUILD
+		governor_note_window_active(true);
+#endif
 		break;
 	case SDL_WINDOWEVENT_FOCUS_LOST:
 		keyboard_focus = false;
+#ifdef TOUCH_GESTURE_BUILD
+		governor_note_window_active(false);
+#endif
 		break;
 	case SDL_WINDOWEVENT_SIZE_CHANGED:
 		gfx_update_screen_scale();
@@ -901,7 +907,15 @@ void handle_events(void)
 			handle_window_event(&e);
 			break;
 		case SDL_APP_DIDENTERFOREGROUND:
+#ifdef TOUCH_GESTURE_BUILD
+			governor_note_window_active(true);
+#endif
 			gfx_swap();
+			break;
+		case SDL_APP_WILLENTERBACKGROUND:
+#ifdef TOUCH_GESTURE_BUILD
+			governor_note_window_active(false);
+#endif
 			break;
 		case SDL_KEYDOWN:
 #ifdef TOUCH_GESTURE_BUILD

@@ -139,6 +139,11 @@ static int ChipmunkSpriteEngine_Update(void)
 
 static void ChipmunkSpriteEngine_Sleep(void)
 {
+	// Windows engine semantics: OverFrameRateSleep OFF disables the
+	// frame-budget compensation (SYS_View_Update still calls Sleep
+	// every frame, but it must not delay).
+	if (!StoatSpriteEngine_SYSTEM_GetConfigOverFrameRateSleep())
+		return;
 	static int prev_time = 0;
 	int this_time = vm_time();
 	int delta = this_time - prev_time;

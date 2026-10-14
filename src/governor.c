@@ -36,6 +36,11 @@ static uint32_t last_render_ms;
 // pacing loop keeps working on a fully static scene with no swap
 // requests at all.
 static uint32_t last_pump_ms;
+// Windows-engine config mirrors (SYSTEM_SetConfigOverFrameRateSleep /
+// SYSTEM_SetConfigSleepByInactiveWindow HLLs).
+static bool over_frame_rate_sleep = true;
+static bool sleep_by_inactive;
+static bool window_active = true;
 
 void governor_init(const struct governor_config *cfg)
 {
@@ -46,6 +51,12 @@ void governor_init(const struct governor_config *cfg)
 	last_pump_ms = last_input_ms;
 	gstate = GOV_ACTIVE;
 	force_render = true;
+	// Full reset: the runtime config toggles return to their defaults so
+	// a re-init never inherits switch state from a previous session
+	// (the HLL layer re-delivers the persisted settings right after).
+	over_frame_rate_sleep = true;
+	sleep_by_inactive = false;
+	window_active = true;
 	inited = true;
 }
 
@@ -81,6 +92,12 @@ void governor_note_render_request(uint32_t now)
 {
 	if (!inited)
 		return;
+	// While SleepByInactive judges the window inactive, window
+	// suppression wins over animation wake-up: otherwise a background
+	// animation toggles POWER_SAVE<->ACTIVE every frame and keeps
+	// rendering at full rate.
+	if (sleep_by_inactive && !window_active)
+		return;
 	// Every swap is render activity, even if the input pump already
 	// restored active mode because scene_is_dirty was set.
 	last_input_ms = now;
@@ -98,9 +115,22 @@ void governor_tick(uint32_t now)
 	if (!inited)
 		return;
 
+	if (!over_frame_rate_sleep) {
+		// Windows engine: OverFrameRateSleep OFF = no throttling at all.
+		if (gstate != GOV_ACTIVE) {
+			gstate = GOV_ACTIVE;
+			force_render = true;
+		}
+		return;
+	}
+
 	// Static reading (scene clean, no recent input) drops to the low
 	// frame rate; any dirty scene or user input restores 60 FPS.
-	bool active = scene_is_dirty || (uint32_t)(now - last_input_ms) < gcfg.idle_enter_ms;
+	// An inactive window only counts as static while SleepByInactive is
+	// enabled; with the option off (Windows default) focus loss must
+	// not change the static-scene judgement.
+	bool active = (!sleep_by_inactive || window_active)
+		&& (scene_is_dirty || (uint32_t)(now - last_input_ms) < gcfg.idle_enter_ms);
 	enum governor_state next = active ? GOV_ACTIVE : GOV_POWER_SAVE;
 	if (next != gstate) {
 		gstate = next;
@@ -129,7 +159,7 @@ uint32_t governor_frame_interval_ms(void)
 
 bool governor_should_render(uint32_t now)
 {
-	if (!inited)
+	if (!inited || !over_frame_rate_sleep)
 		return true;
 	if (force_render && gstate == GOV_ACTIVE) {
 		force_render = false;
@@ -169,4 +199,38 @@ bool governor_wait_event(SDL_Event *event)
 			: (int)(gcfg.power_save_frame_ms - elapsed);
 	}
 	return SDL_WaitEventTimeout(event, timeout) == 1;
+}
+
+void governor_set_over_frame_rate_sleep(bool on)
+{
+	over_frame_rate_sleep = !!on;
+	if (inited && !over_frame_rate_sleep && gstate != GOV_ACTIVE) {
+		// Setting restored the Windows-engine default: resume full rate.
+		gstate = GOV_ACTIVE;
+		force_render = true;
+	}
+}
+
+void governor_set_sleep_by_inactive(bool on)
+{
+	sleep_by_inactive = !!on;
+}
+
+void governor_note_window_active(bool active)
+{
+	window_active = active;
+	// Master switch off = no governor throttling at all (doc contract):
+	// only record the focus state; never transition states here.  The
+	// next governor_tick() reasserts GOV_ACTIVE anyway.
+	if (!inited || !sleep_by_inactive || !over_frame_rate_sleep)
+		return;
+	enum governor_state next = active ? GOV_ACTIVE : GOV_POWER_SAVE;
+	if (next != gstate) {
+		gstate = next;
+		if (active) {
+			force_render = true;
+		} else {
+			last_pump_ms = SDL_GetTicks();
+		}
+	}
 }

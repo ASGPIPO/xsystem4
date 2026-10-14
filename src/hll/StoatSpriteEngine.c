@@ -28,6 +28,7 @@
 #include "iarray.h"
 #include "audio.h"
 #include "input.h"
+#include "governor.h"
 #include "queue.h"
 #include "gfx/gfx.h"
 #include "gfx/font.h"
@@ -887,6 +888,7 @@ static bool config_over_frame_rate_sleep = true;
 void StoatSpriteEngine_SYSTEM_SetConfigOverFrameRateSleep(bool on)
 {
 	config_over_frame_rate_sleep = !!on;
+	governor_set_over_frame_rate_sleep(config_over_frame_rate_sleep);
 }
 
 bool StoatSpriteEngine_SYSTEM_GetConfigOverFrameRateSleep(void)
@@ -899,6 +901,7 @@ static bool config_sleep_by_inactive_window = false;
 void StoatSpriteEngine_SYSTEM_SetConfigSleepByInactiveWindow(bool on)
 {
 	config_sleep_by_inactive_window = !!on;
+	governor_set_sleep_by_inactive(config_sleep_by_inactive_window);
 }
 
 bool StoatSpriteEngine_SYSTEM_GetConfigSleepByInactiveWindow(void)

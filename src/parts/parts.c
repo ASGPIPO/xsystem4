@@ -827,10 +827,15 @@ static int parts_load_numeral_font_combined(int cg_no, int w[12])
 		struct parts_numeral_font *font = &parts_numeral_fonts[i];
 		if (font->type != PARTS_NUMERAL_FONT_COMBINED || font->cg_no != cg_no)
 			continue;
-		for (int i = 0; i < 12; i++) {
-			if (w[i] != font->width[i])
-				continue;
+		bool not_match = false;
+		for (int d = 0; d < 12; d++) {
+			if (w[d] != font->width[d]) {
+				not_match = true;
+				break;
+			}
 		}
+		if (not_match)
+			continue;
 		return i;
 	}
 

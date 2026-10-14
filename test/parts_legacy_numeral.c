@@ -67,7 +67,8 @@ int main(void)
 	const int valid[12] = {14,14,14,14,14,14,14,14,14,14,15,15};
 	check("legacy ten-digit CG2739", PARTS_NUMERAL_FONT_COMBINED, 2739, zero, restored);
 	check("legacy ten-digit CG2738", PARTS_NUMERAL_FONT_COMBINED, 2738, zero, restored);
-	check("other width-15 numeral CG preserved", PARTS_NUMERAL_FONT_COMBINED, 2735, zero, zero);
+	const int restored15[12] = {15,15,15,15,15,15,15,15,15,15,0,0};
+	check("legacy width-15 numeral CG", PARTS_NUMERAL_FONT_COMBINED, 2735, zero, restored15);
 	check("partial width preserved", PARTS_NUMERAL_FONT_COMBINED, 2739, partial, partial);
 	check("negative sentinel preserved", PARTS_NUMERAL_FONT_COMBINED, 2739, negative, negative);
 	check("valid widths preserved", PARTS_NUMERAL_FONT_COMBINED, 2739, valid, valid);

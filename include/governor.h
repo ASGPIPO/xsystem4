@@ -105,4 +105,22 @@ bool governor_should_render(uint32_t now);
 // waiting with a zero timeout (vsync paces the loop).
 bool governor_wait_event(SDL_Event *event);
 
+// Runtime toggles mirroring the Windows engine's SYSTEM_* config HLLs
+// (Rance03/Rance10 "reduce overdraw" / "sleep by inactive" settings).
+//
+// over_frame_rate_sleep (default true, = Windows default): false
+// disables all governor throttling (active pacing and power save);
+// the loop then relies on vsync only, matching the Windows engine's
+// OFF semantics for the frame-budget sleep.
+//
+// sleep_by_inactive (default false, = Windows default): an inactive
+// window (desktop focus loss, Android background) is treated like a
+// static scene and drops to power save immediately.
+void governor_set_over_frame_rate_sleep(bool on);
+void governor_set_sleep_by_inactive(bool on);
+
+// Window/app activity feed: call on focus events and SDL_APP_*
+// lifecycle transitions. Ignored while sleep_by_inactive is off.
+void governor_note_window_active(bool active);
+
 #endif /* SYSTEM4_GOVERNOR_H */
