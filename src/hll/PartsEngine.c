@@ -436,6 +436,11 @@ static bool PE_skip_ReleasePartsMovie(int number, int state)
 }
 #endif
 
+static void PartsEngine_SetFontColorForBackScene(int parts_no, int r, int g, int b, int state)
+{
+	PE_SetPartsFontColor(parts_no, r, g, b, state);
+}
+
 static void PartsEngine_PreLink(void);
 
 HLL_LIBRARY(PartsEngine,
@@ -469,6 +474,11 @@ HLL_LIBRARY(PartsEngine,
 	    HLL_EXPORT(GetActivityEndKey, PE_GetActivityEndKey),
 	    HLL_EXPORT(SetWantSaveBackScene, PE_SetWantSaveBackScene),
 	    HLL_EXPORT(IsWantSaveBackScene, PE_IsWantSaveBackScene),
+	    HLL_EXPORT(ClearBackScene, PE_ReleaseAllParts),
+	    HLL_EXPORT(SetFontColorForBackScene, PartsEngine_SetFontColorForBackScene),
+	    HLL_EXPORT(SetMulColorForBackScene, PE_SetMultiplyColor),
+	    HLL_EXPORT(SetAlphaForBackScene, PE_SetAlpha),
+	    HLL_EXPORT(SetShowForBackScene, PE_SetShow),
 	    HLL_EXPORT(SetPartsCG, PE_SetPartsCG),
 	    HLL_EXPORT(GetPartsCGName, PE_GetPartsCGName),
 	    HLL_EXPORT(SetPartsCGSurfaceArea, PE_SetPartsCGSurfaceArea),
@@ -628,6 +638,7 @@ HLL_LIBRARY(PartsEngine,
 	    HLL_EXPORT(SaveBackScene, PE_SaveBackScene),
 	    HLL_EXPORT(SaveWithoutHideParts, PE_SaveWithoutHideParts),
 	    HLL_EXPORT(Load, PE_Load),
+	    HLL_EXPORT(LoadBackScene, PE_Load),
 	    // Rance 9
 	    HLL_EXPORT(PartsFunc, PartsEngine_PartsFunc),
 	    HLL_EXPORT(AddPartsConstructionProcess, PartsEngine_AddPartsConstructionProcess),
