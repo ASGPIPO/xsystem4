@@ -16,8 +16,11 @@ static struct parts_vscrollbar *get_bar(int number)
 }
 static int max_pos(struct parts_vscrollbar *b)
 {
-	// Rance03 passes NumofLine as both total and the terminal position.
-	return b->total;
+	// Standard scrollbar semantics: the position is the index of the first
+	// visible item, so the maximum is total - view. Rance03's backlog passes
+	// NumofLine() as the "scroll to bottom" position and expects the engine
+	// to clamp it to the last page.
+	return max(0, b->total - b->view);
 }
 static int track_height(struct parts_vscrollbar *b)
 {
@@ -25,12 +28,9 @@ static int track_height(struct parts_vscrollbar *b)
 }
 static int thumb_height(struct parts_vscrollbar *b)
 {
-	// Rance03 scrolls NumofLine over a total+view line space, so short
-	// histories (total <= view) still need a draggable thumb.
 	int track = track_height(b);
-	int64_t span = (int64_t)b->total + b->view;
-	if (span <= 0) return track;
-	return min(track,max(min(16,track),(int)((int64_t)track*b->view/span)));
+	if (b->total <= b->view || b->total <= 0) return track;
+	return min(track,max(min(16,track),(int)((int64_t)track*b->view/b->total)));
 }
 static int thumb_offset(struct parts_vscrollbar *b)
 {

@@ -18,6 +18,7 @@
 #include "system4.h"
 #include "system4/cg.h"
 #include "system4/string.h"
+#include "gfx/font.h"
 
 #include "xsystem4.h"
 #include "asset_manager.h"
@@ -447,23 +448,62 @@ static bool build_copy_cut_cg(struct parts_construction_process *cproc, struct p
 	return true;
 }
 
+static int render_cproc_text(Texture *dst, struct parts_cp_text *op, bool blend);
+
 static bool build_draw_text(struct parts_construction_process *cproc, struct parts_cp_text *op)
 {
 	if (!cproc->common.texture.handle)
 		return false;
-	gfx_render_text(&cproc->common.texture, op->x, op->y, op->text->text, &op->style, true);
+	render_cproc_text(&cproc->common.texture, op, true);
 	return true;
+}
+
+// Renders a text op, honouring '\n' line breaks and the line_space gap between
+// lines. Multi-line strings (e.g. Rance03's backlog CreateLog) must be laid
+// out per line, matching PARTS_TextParts_CalcSize's per-line height metric;
+// otherwise the whole string is flattened into a single line.
+static int render_cproc_text(Texture *dst, struct parts_cp_text *op, bool blend)
+{
+	int line_h = (int)ceilf(text_style_height(&op->style));
+	int y = op->y;
+	struct string *dup = string_dup(op->text);
+	char *p = dup->text;
+	while (p) {
+		char *nl = strchr(p, '\n'); // 0x0A never occurs inside SJIS multibyte chars
+		if (nl)
+			*nl = '\0';
+		gfx_render_text(dst, op->x, y, p, &op->style, blend);
+		if (!nl)
+			break;
+		p = nl + 1;
+		y += line_h + op->line_space;
+	}
+	free_string(dup);
+	return y + line_h - op->y;
 }
 
 static bool build_copy_text(struct parts_construction_process *cproc, struct parts_cp_text *op)
 {
 	if (!cproc->common.texture.handle)
 		return false;
-	int w = ceilf(gfx_size_text (&op->style, op->text->text));
-	int h = ceilf(op->style.size + op->style.edge_up + op->style.edge_down);
-	gfx_fill_with_alpha(&cproc->common.texture, op->x, op->y, w, h,
-			op->style.edge_color.r, op->style.edge_color.g, op->style.edge_color.b, 0);
-	gfx_render_text(&cproc->common.texture, op->x, op->y, op->text->text, &op->style, false);
+	int line_h = (int)ceilf(text_style_height(&op->style));
+	int y = op->y;
+	struct string *dup = string_dup(op->text);
+	char *p = dup->text;
+	while (p) {
+		char *nl = strchr(p, '\n');
+		if (nl)
+			*nl = '\0';
+		int w = (int)ceilf(gfx_size_text(&op->style, p));
+		gfx_fill_with_alpha(&cproc->common.texture, op->x, y, w, line_h,
+				op->style.edge_color.r, op->style.edge_color.g, op->style.edge_color.b, 0);
+		gfx_render_text(&cproc->common.texture, op->x, y, p, &op->style, false);
+		if (!nl)
+			break;
+		p = nl + 1;
+		y += line_h + op->line_space;
+	}
+	free_string(dup);
 	return true;
 }
 

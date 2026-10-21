@@ -48,7 +48,8 @@ void main() {
 	if (use_clipper != 0) {
 		if (!inside_rect(clip_coord, vec2(0.0), vec2(1.0)))
 			discard;
-		alpha *= texture(clipper_tex, clip_coord).a;
+		if (use_clipper == 1)
+			alpha *= texture(clipper_tex, clip_coord).a;
 	}
 
 	if (draw_filter == DRAW_FILTER_MULTIPLY) {

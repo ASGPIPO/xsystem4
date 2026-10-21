@@ -1116,6 +1116,34 @@ static void parts_update_component(struct parts *parts)
 {
 	parts_combine_params(parts->parent ? &parts->parent->global : &root_params,
 			&parts->local, &parts->global);
+	if (parts->parent) {
+		struct parts *parent = parts->parent;
+		parts->render_clip_active = parent->render_clip_active;
+		parts->render_clip = parent->render_clip;
+		// A layout box clips its descendants to its own rectangle so that
+		// content drawn beyond the declared child metrics (e.g. text lines
+		// taller than the layout height) cannot bleed outside the container.
+		if (parent->states[0].type == PARTS_LAYOUT_BOX
+				&& parent->states[0].layout_box.layout_type != PARTS_LAYOUT_FREE) {
+			struct parts_common *c = &parent->states[0].common;
+			if (c->w > 0 && c->h > 0) {
+				Rectangle r = {
+					.x = parent->global.pos.x + c->origin_offset.x,
+					.y = parent->global.pos.y + c->origin_offset.y,
+					.w = c->w,
+					.h = c->h,
+				};
+				if (parts->render_clip_active)
+					SDL_IntersectRect(&parts->render_clip, &r, &parts->render_clip);
+				else {
+					parts->render_clip = r;
+					parts->render_clip_active = true;
+				}
+			}
+		}
+	} else {
+		parts->render_clip_active = false;
+	}
 	if (parts_get_sprite_z(parts) != parts->sp.z
 			|| parts_get_sprite_z2(parts) != parts->sp.z2) {
 		parts_list_resort(parts);
