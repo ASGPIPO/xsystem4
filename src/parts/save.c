@@ -223,6 +223,7 @@ static void save_parts_cp_op(struct iarray_writer *w, struct parts_cp_op *op)
 		break;
 	case PARTS_CP_DRAW_CUT_CG:
 	case PARTS_CP_COPY_CUT_CG:
+	case PARTS_CP_SKIN_CUT_CG:
 		iarray_write_string(w, op->cut_cg.cg_name);
 		iarray_write(w, op->cut_cg.dx);
 		iarray_write(w, op->cut_cg.dy);
@@ -298,6 +299,7 @@ static struct parts_cp_op *load_parts_cp_op(struct iarray_reader *r, int version
 		break;
 	case PARTS_CP_DRAW_CUT_CG:
 	case PARTS_CP_COPY_CUT_CG:
+	case PARTS_CP_SKIN_CUT_CG:
 		op->cut_cg.cg_name = load_cp_cg_name(r, version);
 		op->cut_cg.dx = iarray_read(r);
 		op->cut_cg.dy = iarray_read(r);

@@ -47,6 +47,7 @@ void parts_cp_op_free(struct parts_cp_op *op)
 		break;
 	case PARTS_CP_DRAW_CUT_CG:
 	case PARTS_CP_COPY_CUT_CG:
+	case PARTS_CP_SKIN_CUT_CG:
 		free_string(op->cut_cg.cg_name);
 		break;
 	case PARTS_CP_DRAW_TEXT:
@@ -572,6 +573,10 @@ bool parts_build_construction_process(struct parts *parts,
 			break;
 		case PARTS_CP_DRAW_CUT_CG:
 			if (!build_draw_cut_cg(cproc, &op->cut_cg))
+				return false;
+			break;
+		case PARTS_CP_SKIN_CUT_CG:
+			if (!parts_vscrollbar_build_skin(&cproc->common.texture, &op->cut_cg))
 				return false;
 			break;
 		case PARTS_CP_COPY_CUT_CG:
