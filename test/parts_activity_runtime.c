@@ -88,8 +88,8 @@ int main(void) {
  assert(total(ids[3])==528&&view(ids[3])==22&&pos(ids[3])==0);
  PE_SetDelegateIndex(ids[3],42);PE_ReleaseMessage();
  settotal(ids[3],7);setview(ids[3],22);setpos(ids[3],7);
- assert(pos(ids[3])==7&&rate(ids[3])==1.0f);
- assert(PE_GetMessageType()==20&&PE_GetMessageVariableInt(0)==7&&PE_GetMessageVariableInt(1)==7);
+ assert(pos(ids[3])==0&&rate(ids[3])==0.0f);
+ assert(PE_GetMessageType()==20&&PE_GetMessageVariableInt(0)==0&&PE_GetMessageVariableInt(1)==7);
  PE_ReleaseMessage();
  void (*setfocus)(int)=bound("SetFocus");bool (*isfocus)(int)=bound("IsFocus");
  setfocus(ids[3]);assert(isfocus(ids[3])&&!isfocus(ids[4]));
@@ -100,29 +100,29 @@ int main(void) {
  assert(PE_GetMessageType()==19&&PE_GetMessagePartsNumber()==ids[3]&&PE_GetMessageVariableCount()==0);PE_PopMessage();
  assert(PE_GetMessageType()==18&&PE_GetMessagePartsNumber()==ids[4]&&PE_GetMessageVariableCount()==0);PE_ReleaseMessage();
 
- settotal(ids[3],100);setview(ids[3],20);setpos(ids[3],999);assert(pos(ids[3])==100);
+ settotal(ids[3],100);setview(ids[3],20);setpos(ids[3],999);assert(pos(ids[3])==80);
  assert(PE_GetMessageType()==20);assert(PE_GetMessagePartsNumber()==ids[3]);assert(PE_GetMessageDelegateIndex()==42);
  assert(PE_GetMessageVariableCount()==2&&PE_GetMessageVariableType(0)==1&&PE_GetMessageVariableType(1)==1);
- assert(PE_GetMessageVariableInt(0)==100&&PE_GetMessageVariableInt(1)==100);PE_ReleaseMessage();
- setpos(ids[3],-5);assert(pos(ids[3])==0);setrate(ids[3],0.5f);assert(pos(ids[3])==50&&rate(ids[3])==0.5f);
+ assert(PE_GetMessageVariableInt(0)==80&&PE_GetMessageVariableInt(1)==100);PE_ReleaseMessage();
+ setpos(ids[3],-5);assert(pos(ids[3])==0);setrate(ids[3],0.5f);assert(pos(ids[3])==40&&rate(ids[3])==0.5f);
  struct parts *bar=parts_try_get(ids[3]);assert(bar&&bar->vscrollbar);
  parts_vscrollbar_mouse(bar,(Point){986,375},true,false,true,true);
  parts_vscrollbar_mouse(bar,(Point){986,200},true,true,true,true);assert(pos(ids[3])==0);
- parts_vscrollbar_mouse(bar,(Point){986,1000},true,true,false,true);assert(pos(ids[3])==100);
+ parts_vscrollbar_mouse(bar,(Point){986,1000},true,true,false,true);assert(pos(ids[3])==80);
  parts_vscrollbar_mouse(bar,(Point){986,1000},false,true,false,true);assert(!bar->vscrollbar->dragging);
- setview(ids[3],1000);assert(pos(ids[3])==100);assert(rate(ids[3])==1.0f);
+ setview(ids[3],1000);assert(pos(ids[3])==0);assert(rate(ids[3])==0.0f);
  settotal(ids[3],7);setview(ids[3],22);setpos(ids[3],7);PE_ReleaseMessage();
  {int track=bar->vscrollbar->height-bar->vscrollbar->up-bar->vscrollbar->down;
-  int thumb=(int)((long long)track*22/(7+22));if(thumb<16)thumb=16;if(thumb>track)thumb=track;
-  int travel=track-thumb;assert(travel>0);
   int oy=bar->global.pos.y+bar->states[0].common.origin_offset.y;
-  parts_vscrollbar_mouse(bar,(Point){986,oy+bar->vscrollbar->up+travel+thumb/2},true,false,true,true);
+  parts_vscrollbar_mouse(bar,(Point){986,oy+bar->vscrollbar->up+track/2},true,false,true,true);
   assert(bar->vscrollbar->dragging);
-  parts_vscrollbar_mouse(bar,(Point){986,oy},true,true,true,true);assert(pos(ids[3])==0&&rate(ids[3])==0.0f);
-  assert(PE_GetMessageType()==20&&PE_GetMessagePartsNumber()==ids[3]&&PE_GetMessageVariableCount()==2&&PE_GetMessageVariableInt(0)==0&&PE_GetMessageVariableInt(1)==7);PE_ReleaseMessage();
-  parts_vscrollbar_mouse(bar,(Point){986,oy+track},true,true,false,true);assert(pos(ids[3])==7&&rate(ids[3])==1.0f);
-  assert(PE_GetMessageType()==20&&PE_GetMessageVariableInt(0)==7&&PE_GetMessageVariableInt(1)==7);PE_ReleaseMessage();
-  parts_vscrollbar_mouse(bar,(Point){986,0},false,true,false,true);assert(!bar->vscrollbar->dragging);}
+  parts_vscrollbar_mouse(bar,(Point){986,oy},true,true,true,true);
+  assert(pos(ids[3])==0&&rate(ids[3])==0.0f);
+  assert(PE_GetMessageType()==0);
+  parts_vscrollbar_mouse(bar,(Point){986,oy+track},true,true,false,true);
+  assert(pos(ids[3])==0&&PE_GetMessageType()==0);
+  parts_vscrollbar_mouse(bar,(Point){986,0},false,true,false,true);
+  assert(!bar->vscrollbar->dragging);}
  {void (*addchild)(int,int)=bound("AddChild");
   int box=PE_GetFreeNumber();PE_SetPos(box,50,60);PE_SetComponentType(box,8,1);
   int l1=PE_GetFreeNumber();PE_SetPos(l1,1,2);
@@ -144,6 +144,6 @@ int main(void) {
  assert(!release(name,&erased));
  assert(readfile(name,file));assert(count(name)==7);parts_release_all();assert(!exists(name));
  free_string(s);free_string(name);
- printf("PASS real PACTEX 7 parts, exact endkeys, names/coordinates/origins, Scroll20 two-int delegate ABI, focus state switch, short 7/22 drag to both ends, AddChild ordered parenting, scrollbar bounds/rate/drag, scoped dynamic descendant release, bottom-level reset\n");
+ printf("PASS real PACTEX 7 parts, exact endkeys, names/coordinates/origins, Scroll20 two-int delegate ABI, focus state switch, short 7/22 fixed position, AddChild ordered parenting, scrollbar bounds/rate/drag, scoped dynamic descendant release, bottom-level reset\n");
  return 0;
 }

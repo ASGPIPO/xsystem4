@@ -262,13 +262,14 @@ bool ADVLogList_Load(struct page **data)
 		goto error;
 	}
 
-	// XXX: For whatever reason this function always creates a blank page 0,
-	//      and then loads the input pages after that. So a consecutive save
-	//      and load will increase all page numbers by 1.
 	ensure_log();
 
-	for (int i = 1; i < nr_pages + 1; i++) {
-		ADVLogList_AddNewPage();
+	// Load the saved pages starting at page 0. A leading blank page (as the
+	// real DLL creates) would be saved back as an extra empty page on every
+	// save/load round trip, accumulating phantom empty pages in the backlog.
+	for (int i = 0; i < nr_pages; i++) {
+		if (i)
+			ADVLogList_AddNewPage();
 		struct adv_log *log = current_log();
 		int nr_lines = iarray_read(&r);
 		if (nr_lines <= 0 || nr_lines > 10000) {

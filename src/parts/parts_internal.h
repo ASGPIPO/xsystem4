@@ -434,10 +434,6 @@ struct parts {
 	bool is_hovered;
 	bool is_focused;
 	int hover_time;
-	// Screen-space rectangle limiting where this part (and its construction
-	// texture) may be drawn, inherited from an ancestor layout box.
-	Rectangle render_clip;
-	bool render_clip_active;
 	int draw_filter;
 	bool message_window;
 	int margin_top;

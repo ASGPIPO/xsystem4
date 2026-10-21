@@ -45,11 +45,6 @@ static struct {
 	GLint inv_clipper_transform;
 } parts_shader;
 
-// Current screen-space clip inherited from an ancestor layout box,
-// applied while rendering a single parts object.
-static bool render_clip_active;
-static Rectangle render_clip;
-
 static void set_draw_filter_blend_func(int draw_filter)
 {
 	switch (draw_filter) {
@@ -108,16 +103,6 @@ static void parts_render_texture(struct texture *texture, mat4 mw_transform, Rec
 
 		glUniform1i(parts_shader.use_clipper, 1);
 		glUniform1i(parts_shader.clipper_tex, 1);
-		glUniformMatrix4fv(parts_shader.inv_clipper_transform, 1, GL_FALSE, clip_inv[0]);
-	} else if (render_clip_active) {
-		// Rect-only clip (use_clipper == 2): discard fragments outside the
-		// ancestor layout box's screen rectangle.
-		mat4 clip_m = GLM_MAT4_IDENTITY_INIT;
-		glm_translate(clip_m, (vec3){ render_clip.x, render_clip.y, 0 });
-		glm_scale(clip_m, (vec3){ render_clip.w, render_clip.h, 1.0 });
-		mat4 clip_inv;
-		glm_mat4_inv(clip_m, clip_inv);
-		glUniform1i(parts_shader.use_clipper, 2);
 		glUniformMatrix4fv(parts_shader.inv_clipper_transform, 1, GL_FALSE, clip_inv[0]);
 	} else {
 		glUniform1i(parts_shader.use_clipper, 0);
@@ -622,9 +607,6 @@ void parts_render(struct parts *parts)
 		if (!link_parts->is_hovered)
 			return;
 	}
-
-	render_clip_active = parts->render_clip_active;
-	render_clip = parts->render_clip;
 
 	// render
 	struct parts_state *state = &parts->states[parts->state];

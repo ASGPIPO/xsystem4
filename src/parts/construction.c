@@ -337,10 +337,7 @@ static bool build_create(struct parts *parts, struct parts_construction_process 
 		struct parts_cp_create *op)
 {
 	gfx_delete_texture(&cproc->common.texture);
-	// The canvas is a layer to paint on: unpainted areas must stay
-	// transparent so the parts/scene behind shows through (e.g. the
-	// Rance03 backlog scrollbar's track outside its skin CGs).
-	gfx_init_texture_rgba(&cproc->common.texture, op->w, op->h, (SDL_Color){0,0,0,0});
+	gfx_init_texture_rgba(&cproc->common.texture, op->w, op->h, (SDL_Color){0,0,0,255});
 	if (!cproc->common.texture.handle)
 		return false;
 	parts_set_dims(parts, &cproc->common, op->w, op->h);
@@ -451,6 +448,16 @@ static bool build_copy_cut_cg(struct parts_construction_process *cproc, struct p
 	return true;
 }
 
+static int cproc_text_line_advance(struct parts_cp_text *op)
+{
+	// Match CASCharSpriteProperty's cell height, including odd sizes and
+	// overlapping bold/outline strokes. Single-line rendering is unchanged.
+	int size = ((int)op->style.size + 1) & ~1;
+	int stroke = (int)ceilf(fmaxf(op->style.bold_width,
+			fmaxf(op->style.edge_up, op->style.edge_down)));
+	return size + 2 * stroke + op->line_space;
+}
+
 static int render_cproc_text(Texture *dst, struct parts_cp_text *op, bool blend);
 
 static bool build_draw_text(struct parts_construction_process *cproc, struct parts_cp_text *op)
@@ -479,7 +486,7 @@ static int render_cproc_text(Texture *dst, struct parts_cp_text *op, bool blend)
 		if (!nl)
 			break;
 		p = nl + 1;
-		y += line_h + op->line_space;
+		y += cproc_text_line_advance(op);
 	}
 	free_string(dup);
 	return y + line_h - op->y;
@@ -504,7 +511,7 @@ static bool build_copy_text(struct parts_construction_process *cproc, struct par
 		if (!nl)
 			break;
 		p = nl + 1;
-		y += line_h + op->line_space;
+		y += cproc_text_line_advance(op);
 	}
 	free_string(dup);
 	return true;
