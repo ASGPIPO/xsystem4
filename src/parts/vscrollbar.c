@@ -74,6 +74,17 @@ static bool redraw(struct parts *p)
 	}
 	return true;
 }
+/* Core position update. The drag path calls this every frame while the thumb
+ * is held, so it only notifies on an actual change; the exported
+ * PE_SetVScrollbarScrollPos forces the notification (see there). */
+static void vscrollbar_set_pos(struct parts *p, int pos, bool force_notify)
+{
+	struct parts_vscrollbar *b = p->vscrollbar;
+	pos = min(max(0,pos),max_pos(b));
+	if (!force_notify && b->pos == pos) return;
+	b->pos = pos; redraw(p);
+	parts_msg_push(p,PARTS_MSG_SCROLL,"ii",b->pos,b->total);
+}
 bool PE_CreateVScrollbar(int number, struct string *name, int width, int height,
 		int up,int down,int total,int view,int pos,int move)
 {
@@ -99,13 +110,13 @@ void parts_vscrollbar_free(struct parts *p)
 }
 void PE_SetVScrollbarScrollPos(int number,int pos)
 {
+	// Always notify: SetScrollPos is the AIN's explicit request, and Rance03's
+	// backlog relies on the SCROLL message to trigger the first SetLineIndex.
+	// When the whole history fits the view (total <= view), the clamped
+	// position does not change, but the event must still fire.
 	struct parts *p=parts_try_get(number);
 	if (!p || !p->vscrollbar) return;
-	struct parts_vscrollbar *b=p->vscrollbar;
-	pos=min(max(0,pos),max_pos(b));
-	if (b->pos==pos) return;
-	b->pos=pos;redraw(p);
-	parts_msg_push(p,PARTS_MSG_SCROLL,"ii",b->pos,b->total);
+	vscrollbar_set_pos(p,pos,true);
 }
 int PE_GetVScrollbarScrollPos(int number)
 { struct parts_vscrollbar *b=get_bar(number);return b?b->pos:0; }
@@ -186,8 +197,8 @@ void parts_vscrollbar_mouse(struct parts *p,Point mouse,bool clicking,
 	int y=mouse.y-p->global.pos.y-p->states[0].common.origin_offset.y;
 	if(!was_clicking&&hovered&&click_available){
 		int thumb=b->up+thumb_offset(b);
-		if(y<b->up) PE_SetVScrollbarScrollPos(p->no,b->pos-b->move);
-		else if(y>=b->height-b->down) PE_SetVScrollbarScrollPos(p->no,b->pos+b->move);
+		if(y<b->up) vscrollbar_set_pos(p,b->pos-b->move,false);
+		else if(y>=b->height-b->down) vscrollbar_set_pos(p,b->pos+b->move,false);
 		else {
 			b->dragging=true;
 			if(y>=thumb&&y<thumb+thumb_height(b)) b->drag_offset=y-thumb;
@@ -198,7 +209,7 @@ void parts_vscrollbar_mouse(struct parts *p,Point mouse,bool clicking,
 		int travel=track_height(b)-thumb_height(b);
 		if(travel>0){
 			int offset=min(travel,max(0,y-b->up-b->drag_offset));
-			PE_SetVScrollbarScrollPos(p->no,(int)((int64_t)offset*max_pos(b)/travel));
+			vscrollbar_set_pos(p,(int)((int64_t)offset*max_pos(b)/travel),false);
 		}
 	}
 }
