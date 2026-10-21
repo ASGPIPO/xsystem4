@@ -103,7 +103,18 @@ int PE_GetMessagePartsNumber(void)
 int PE_GetMessageDelegateIndex(void)
 {
 	struct parts_message *msg = STAILQ_FIRST(&msg_queue);
-	return msg ? msg->delegate_index : -1;
+	if (!msg)
+		return -1;
+	// The delegate may be registered after the message was queued (Rance03's
+	// backlog sets the initial scroll position before AFL_Parts_AddScrollEvent
+	// registers the scroll delegate), so resolve late registrations from the
+	// parts object at read time.
+	if (msg->delegate_index < 0) {
+		struct parts *p = parts_try_get(msg->parts_no);
+		if (p)
+			msg->delegate_index = p->delegate_index;
+	}
+	return msg->delegate_index;
 }
 
 int PE_GetMessageVariableCount(void)
