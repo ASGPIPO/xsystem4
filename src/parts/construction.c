@@ -337,7 +337,10 @@ static bool build_create(struct parts *parts, struct parts_construction_process 
 		struct parts_cp_create *op)
 {
 	gfx_delete_texture(&cproc->common.texture);
-	gfx_init_texture_rgba(&cproc->common.texture, op->w, op->h, (SDL_Color){0,0,0,255});
+	// The canvas is a layer to paint on: unpainted areas must stay
+	// transparent so the parts/scene behind shows through (e.g. the
+	// Rance03 backlog scrollbar's track outside its skin CGs).
+	gfx_init_texture_rgba(&cproc->common.texture, op->w, op->h, (SDL_Color){0,0,0,0});
 	if (!cproc->common.texture.handle)
 		return false;
 	parts_set_dims(parts, &cproc->common, op->w, op->h);
