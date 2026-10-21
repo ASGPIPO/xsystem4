@@ -43,6 +43,52 @@ static struct string *skin_name(struct string *base, const char *suffix)
 	string_append_cstr(&name,suffix,strlen(suffix));
 	return name;
 }
+/* Unlike DrawCutCG, skin layering must retain straight RGBA for later
+ * composition over the scene. Keep this operation in the construction list
+ * so rebuilding and XPE loading reproduce the same pixels. */
+bool parts_vscrollbar_build_skin(Texture *dst, struct parts_cp_cut_cg *op)
+{
+	if (!dst->handle) return false;
+	if (op->dw <= 0 || op->dh <= 0) return true;
+	struct cg *cg = asset_cg_load_by_name(op->cg_name->text, NULL);
+	if (!cg) return false;
+	Texture src = {0}, background = {0};
+	gfx_init_texture_with_cg(&src, cg);
+	cg_free(cg);
+	gfx_init_texture_blank(&background, dst->w, dst->h);
+	gfx_copy_with_alpha_map(&background, 0, 0, dst, 0, 0, dst->w, dst->h);
+
+	static Shader shader;
+	if (!shader.program)
+		gfx_load_shader(&shader, "shaders/render.v.glsl", "shaders/parts_vscrollbar_over.f.glsl");
+	mat4 world = WORLD_TRANSFORM(op->dw, op->dh, op->dx, op->dy);
+	mat4 view = WV_TRANSFORM(dst->w, dst->h);
+	struct gfx_render_job job = {
+		.shader = &shader, .shape = GFX_RECTANGLE, .texture = src.handle,
+		.world_transform = world[0], .view_transform = view[0]
+	};
+	GLuint fbo = gfx_set_framebuffer(GL_DRAW_FRAMEBUFFER, dst, 0, 0, dst->w, dst->h);
+	gfx_prepare_job(&job);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, background.handle);
+	glUniform1i(glGetUniformLocation(shader.program, "background"), 1);
+	glUniform4f(glGetUniformLocation(shader.program, "source_rect"),
+			(float)op->sx/src.w, (float)op->sy/src.h,
+			(float)op->sw/src.w, (float)op->sh/src.h);
+	glActiveTexture(GL_TEXTURE0);
+	GLint blend[4];
+	glGetIntegerv(GL_BLEND_SRC_RGB, &blend[0]);
+	glGetIntegerv(GL_BLEND_DST_RGB, &blend[1]);
+	glGetIntegerv(GL_BLEND_SRC_ALPHA, &blend[2]);
+	glGetIntegerv(GL_BLEND_DST_ALPHA, &blend[3]);
+	glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+	gfx_run_job(&job);
+	glBlendFuncSeparate(blend[0], blend[1], blend[2], blend[3]);
+	gfx_reset_framebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+	gfx_delete_texture(&background);
+	gfx_delete_texture(&src);
+	return true;
+}
 static bool draw_skin(int number, int state, struct string *base, const char *suffix,
 		int x,int y,int w,int h)
 {
@@ -50,8 +96,15 @@ static bool draw_skin(int number, int state, struct string *base, const char *su
 	struct string *name = skin_name(base,suffix);
 	struct cg_metrics m;
 	bool ok = asset_cg_get_metrics_by_name(name->text,&m);
-	if (ok) ok = PE_AddDrawCutCGToPartsConstructionProcess(number,name,
-			x,y,w,h,0,0,m.w,m.h,1,state);
+	if (ok) {
+		struct parts_cp_op *op = xcalloc(1, sizeof(*op));
+		op->type = PARTS_CP_SKIN_CUT_CG;
+		op->cut_cg = (struct parts_cp_cut_cg) {
+			.cg_name = string_ref(name), .dx = x, .dy = y, .dw = w, .dh = h,
+			.sw = m.w, .sh = m.h, .interp_type = 1
+		};
+		parts_add_cp_op(parts_get_construction_process(parts_get(number), state-1), op);
+	}
 	free_string(name);
 	return ok;
 }
@@ -65,6 +118,8 @@ static bool redraw(struct parts *p)
 	for (int s = 1; s <= 3; s++) {
 		PE_ClearPartsConstructionProcess(p->no,s);
 		PE_AddCreateToPartsConstructionProcess(p->no,b->width,b->height,s);
+		if (b->width > 0 && b->height > 0)
+			PE_AddFillWithAlphaToPartsConstructionProcess(p->no,0,0,b->width,b->height,0,0,0,0,s);
 		if (!draw_skin(p->no,s,b->cg_name,"\xa3\xaf\xb1\xb3\xbe\xb0" /* ／背景 */,0,0,b->width,b->height)
 			|| !draw_skin(p->no,s,b->cg_name,up[s-1],0,0,b->width,b->up)
 			|| !draw_skin(p->no,s,b->cg_name,down[s-1],0,b->height-b->down,b->width,b->down)

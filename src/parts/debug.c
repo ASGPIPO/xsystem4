@@ -114,6 +114,7 @@ static void parts_construction_process_to_json(struct parts_construction_process
 		[PARTS_CP_DRAW_RECT] = "draw_rect",
 		[PARTS_CP_DRAW_CUT_CG] = "draw_cut_cg",
 		[PARTS_CP_COPY_CUT_CG] = "copy_cut_cg",
+		[PARTS_CP_SKIN_CUT_CG] = "skin_cut_cg",
 		[PARTS_CP_DRAW_TEXT] = "draw_text",
 		[PARTS_CP_COPY_TEXT] = "copy_text",
 		[PARTS_CP_GRAY_FILTER] = "gray_filter",
@@ -160,6 +161,7 @@ static void parts_construction_process_to_json(struct parts_construction_process
 			break;
 		case PARTS_CP_DRAW_CUT_CG:
 		case PARTS_CP_COPY_CUT_CG:
+		case PARTS_CP_SKIN_CUT_CG:
 			cJSON_AddSjisToObject(obj, "name", op->cut_cg.cg_name->text);
 			cJSON_AddItemToObjectCS(obj, "dst", tmp = cJSON_CreateObject());
 			cJSON_AddNumberToObject(tmp, "x", op->cut_cg.dx);
@@ -544,6 +546,9 @@ static void parts_list_print(struct parts *parts, int indent)
 				break;
 			case PARTS_CP_DRAW_CUT_CG:
 				sys_message(" draw-cut-cg");
+				break;
+			case PARTS_CP_SKIN_CUT_CG:
+				sys_message(" skin-cut-cg");
 				break;
 			case PARTS_CP_COPY_CUT_CG:
 				sys_message(" copy-cut-cg");

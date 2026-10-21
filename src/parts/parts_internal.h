@@ -193,7 +193,8 @@ enum parts_cp_op_type {
 	PARTS_CP_COPY_TEXT,
 	PARTS_CP_GRAY_FILTER,
 	PARTS_CP_FILL_WITH_ALPHA,
-#define PARTS_NR_CP_TYPES (PARTS_CP_FILL_WITH_ALPHA+1)
+	PARTS_CP_SKIN_CUT_CG,
+#define PARTS_NR_CP_TYPES (PARTS_CP_SKIN_CUT_CG+1)
 };
 
 struct parts_cp_create {
@@ -478,6 +479,7 @@ struct parts_vscrollbar {
 void parts_vscrollbar_mouse(struct parts *parts, Point mouse, bool clicking,
 		bool was_clicking, bool hovered, bool click_available);
 void parts_vscrollbar_free(struct parts *parts);
+bool parts_vscrollbar_build_skin(Texture *dst, struct parts_cp_cut_cg *op);
 
 struct parts_hscrollbar {
 	struct string *cg_name;
