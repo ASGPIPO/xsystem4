@@ -250,8 +250,18 @@ void parts_do_layout(struct parts *parts)
 	if (parts->states[0].type != PARTS_LAYOUT_BOX)
 		return;
 	struct parts_layout_box *lb = &parts->states[0].layout_box;
-	if (lb->layout_type == PARTS_LAYOUT_FREE)
+	if (lb->layout_type == PARTS_LAYOUT_FREE) {
+		int width = 0, height = 0;
+		struct parts *child;
+		PARTS_FOREACH_CHILD(child, parts) {
+			if (!child->local.show) continue;
+			struct parts_common *c = &child->states[0].common;
+			width = max(width,child->local.pos.x+c->origin_offset.x+c->w+child->margin_right);
+			height = max(height,child->local.pos.y+c->origin_offset.y+c->h+child->margin_bottom);
+		}
+		parts_set_dims(parts,&lb->common,width+lb->padding_right,height+lb->padding_bottom);
 		return;
+	}
 
 	int total_w, total_h;
 	if (lb->layout_type == PARTS_LAYOUT_HORIZONTAL)

@@ -16,6 +16,8 @@ struct activity_part {
 	struct string *name;
 	int number;
 	bool has_intent;
+	struct ex_list *destinations; /* Borrowed from the owning activity EX. */
+	int intent_type;
 };
 struct parts_activity {
 	struct parts_activity *next;
@@ -42,6 +44,13 @@ static struct activity_part *find_part(struct parts_activity *a, struct string *
 		if (!strcmp(a->parts[i].name->text, name->text)) return &a->parts[i];
 	return NULL;
 }
+static struct activity_part *find_part_number(struct parts_activity *a, int number)
+{
+	if (!a) return NULL;
+	for (int i = 0; i < a->nr_parts; i++)
+		if (a->parts[i].number == number) return &a->parts[i];
+	return NULL;
+}
 static struct ex_tree *child(struct ex_tree *t, const char *key)
 {
 	if (!t || t->is_leaf) return NULL;
@@ -56,6 +65,36 @@ static int integer(struct ex_tree *t, const char *key, int fallback)
 {
 	struct ex_value *v = field(t, key);
 	return v && v->type == EX_INT ? v->i : fallback;
+}
+static void load_intent(struct activity_part *part, struct ex_tree *t)
+{
+	const char *destination_key = "\xdf\x77\xd2\xc6\xcf\xc8" /* 遷移先 */;
+	const char *method_key = "\xc7\xa8\xd2\xc6\xb7\xbd\xb7\xa8" /* 迁移方法 */;
+	struct ex_tree *legacy = child(t,"\xa5\xa4\xa5\xf3\xa5\xc6\xa5\xf3\xa5\xc8\xc7\xe9\x88\xf3" /* インテント情報 */);
+	if (!child(t,destination_key) && !child(t,method_key) && legacy) {
+		t = legacy;
+		/* Preserve recognition of older templates with a named intent marker. */
+		if (!child(t,destination_key) && !child(t,method_key)) {
+			part->has_intent = true;
+			return;
+		}
+	}
+	struct ex_value *destinations = field(t,destination_key);
+	struct ex_value *method = field(t,method_key);
+	if (!destinations || destinations->type != EX_LIST || !destinations->list
+			|| !method || method->type != EX_INT || method->i < 0 || method->i > 2)
+		return;
+	bool nonempty = false;
+	for (unsigned i = 0; i < destinations->list->nr_items; i++) {
+		struct ex_value *destination = ex_list_get(destinations->list,i);
+		if (!destination || destination->type != EX_STRING || !destination->s)
+			return;
+		nonempty |= destination->s->size != 0;
+	}
+	part->destinations = destinations->list;
+	part->intent_type = method->i;
+	/* AIN ignores empty destinations; methods 1 and 2 remove activities. */
+	part->has_intent = nonempty || method->i != 0;
 }
 static float real(struct ex_tree *t, const char *key, float fallback)
 {
@@ -95,12 +134,17 @@ static bool load_state(int number, struct ex_tree *t, int state)
 	struct string *s;
 	if (kind == 11) {
 		s = text(t,"\x43\x47\xc3\xfb" /* CG名 */);
+		/* Empty alternate images inherit the normal state of a template part. */
+		if (state > 1 && (!s || !s->size)) return true;
 		if (!PE_SetPartsCG(number,s,integer(t,"\x89\xe4\xd0\xce" /* 変形 */,0),state)) return false;
 	} else if (kind == 13) {
 		PE_SetComponentType(number,13,state);
 		font(number,child(t,"\xce\xc4\xb1\xbe\xd7\xb0\xef\x97" /* 文本装飾 */),state);
 		s = text(t,"\xce\xc4\xb1\xbe" /* 文本 */);
 		if (s && !PE_SetText(number,s,state)) return false;
+	} else if (kind == 18) {
+		/* Slider-style construction state with no CG assets attached; keep inert. */
+		return true;
 	} else {
 		WARNING("Unsupported activity state type: %d",kind);
 		return false;
@@ -121,8 +165,13 @@ static bool load_button(int number, struct ex_tree *t)
 	struct string *label = text(t,"\xce\xc4\xb1\xbe" /* 文本 */);
 	int w = vector(t,"\xb3\xdf\xb4\xe7" /* 尺寸 */,0,0), h = vector(t,"\xb3\xdf\xb4\xe7" /* 尺寸 */,1,0);
 	struct cg_metrics m;
-	if (w <= 0 || h <= 0 || w > 4096 || h > 4096 || !skin)
+	if (w <= 0 || h <= 0 || w > 4096 || h > 4096)
 		return false;
+	/* An empty CG name means an imageless button; keep it without a skin. */
+	if (!skin || !skin->size) {
+		PE_SetClickable(number,integer(t,"\xd3\xd0\xd0\xa7" /* 有效 */,1));
+		return true;
+	}
 	/* Each button state is a separately named CG under the skin directory. */
 	const char *suffixes[] = {"\xa3\xaf\xcd\xa8\xb3\xa3" /* ／通常 */, "\xa3\xaf\xbf\xaa" /* ／开 */, "\xa3\xaf\xbb\xf7\xb5\xb9" /* ／击倒 */};
 	for (int state = 1; state <= 3; state++) {
@@ -159,11 +208,29 @@ static bool load_button(int number, struct ex_tree *t)
 }
 static bool load_checkbox(int number, struct ex_tree *t)
 {
-	return PE_CreateCheckBox(number,text(t,"\x43\x47\xc3\xfb"),
+	bool ok = PE_CreateCheckBox(number,text(t,"\x43\x47\xc3\xfb"),
 			vector(t,"\xb3\xdf\xb4\xe7",0,0),vector(t,"\xb3\xdf\xb4\xe7",1,0),
 			integer(t,"\x43\x68\x65\x63\x6b\xd7\xb4\xcc\xac",0),integer(t,"\xb0\xb4\xc5\xa5\xc4\xa3\xca\xbd",0),
 			vector(t,"\xb0\xb4\xc5\xa5\xd1\xd5\xc9\xab",0,255),vector(t,"\xb0\xb4\xc5\xa5\xd1\xd5\xc9\xab",1,255),
 			vector(t,"\xb0\xb4\xc5\xa5\xd1\xd5\xc9\xab",2,255));
+	struct string *label = text(t,"\xce\xc4\xb1\xbe" /* 文本 */);
+	if (!ok || !label || !label->size) return ok;
+	struct text_style ts = {
+		.face = integer(t,"\xd7\xd6\xcc\xe5\xc0\xe0\xd0\xcd",0),
+		.size = integer(t,"\xd7\xd6\xcc\xe5\xb3\xdf\xb4\xe7",16),
+		.bold_width = real(t,"\xd7\xd6\xcc\xe5\xb4\xd6\xcf\xb8",0),
+		.color = { vector(t,"\xd7\xd6\xcc\xe5\xd1\xd5\xc9\xab",0,0),
+			vector(t,"\xd7\xd6\xcc\xe5\xd1\xd5\xc9\xab",1,0),
+			vector(t,"\xd7\xd6\xcc\xe5\xd1\xd5\xc9\xab",2,0),255 },
+		.edge_color = { vector(t,"\xd7\xd6\xcc\xe5\xc3\xe8\xb1\xdf\xc9\xab",0,0),
+			vector(t,"\xd7\xd6\xcc\xe5\xc3\xe8\xb1\xdf\xc9\xab",1,0),
+			vector(t,"\xd7\xd6\xcc\xe5\xc3\xe8\xb1\xdf\xc9\xab",2,0),255 },
+		.scale_x = 1.0f, .space_scale_x = 1.0f,
+		.font_spacing = integer(t,"\xce\xc4\xd7\xd6\xbc\xe4\xbe\xe0",0)
+	};
+	text_style_set_edge_width(&ts,real(t,"\xd7\xd6\xcc\xe5\xc3\xe8\xb1\xdf",0));
+	return parts_checkbox_set_text(parts_get(number),label,&ts,integer(t,"\xd0\xd0\xbc\xe4\xbe\xe0",0));
+
 }
 static bool load_layout_box(int number, struct ex_tree *t)
 {
@@ -199,11 +266,16 @@ static bool load_component(int number, struct ex_tree *t)
 				integer(kind,"\xc8\xab\xcc\xe5\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf" /* 全体スクロール量 */,0),integer(kind,"\xcf\xd4\xca\xbe\xc1\xbf" /* 显示量 */,0),
 				integer(kind,"\xb9\xf6\xb6\xaf\xce\xbb\xd6\xc3" /* 滚动位置 */,0),integer(kind,"\xb0\xb4\xc5\xa5\xb5\xe3\xbb\xf7\xd2\xc6\xb6\xaf\xc1\xbf" /* 按钮点击移动量 */,1));
 	case 2:
+		/* An empty CG name means an imageless scrollbar part: keep it without a skin. */
+		{ struct string *cg = text(kind,"\x43\x47\xc3\xfb" /* CG名 */); if (!cg || !cg->size) return true; }
 		return PE_CreateVScrollbar(number,text(kind,"\x43\x47\xc3\xfb" /* CG名 */),
 				integer(kind,"\xb7\xf9" /* 幅 */,0),integer(kind,"\xb3\xa4\xb6\xc8" /* 长度 */,0),
 				integer(kind,"\xc7\xb0\xb3\xdf\xb4\xe7" /* 前尺寸 */,0),integer(kind,"\xb4\xce\xb3\xdf\xb4\xe7" /* 次尺寸 */,0),
 				integer(kind,"\xc8\xab\xcc\xe5\xa5\xb9\xa5\xaf\xa5\xed\xa9\x60\xa5\xeb\xc1\xbf" /* 全体スクロール量 */,0),integer(kind,"\xcf\xd4\xca\xbe\xc1\xbf" /* 显示量 */,0),
 				integer(kind,"\xb9\xf6\xb6\xaf\xce\xbb\xd6\xc3" /* 滚动位置 */,0),integer(kind,"\xb0\xb4\xc5\xa5\xb5\xe3\xbb\xf7\xd2\xc6\xb6\xaf\xc1\xbf" /* 按钮点击移动量 */,1));
+	case 9:
+		/* Kind 9 is a logical control part with no CG or size fields; keep it inert. */
+		return true;
 	default:
 		WARNING("Unsupported activity component kind");
 		return false;
@@ -217,9 +289,9 @@ static bool load_tree(struct parts_activity *a, struct ex_tree *t, int parent)
 	int number = PE_GetFreeNumber();
 	a->parts = xrealloc(a->parts,(a->nr_parts+1)*sizeof(*a->parts));
 	a->parts[a->nr_parts++] = (struct activity_part) {
-		.name = string_ref(t->name), .number = number,
-		.has_intent = child(t,"\xa5\xa4\xa5\xf3\xa5\xc6\xa5\xf3\xa5\xc8\xc7\xe9\x88\xf3" /* インテント情報 */) != NULL
+		.name = string_ref(t->name), .number = number
 	};
+	load_intent(&a->parts[a->nr_parts-1],t);
 	PE_SetPos(number,vector(t,"\xd7\xf8\xb1\xea" /* 坐标 */,0,0),vector(t,"\xd7\xf8\xb1\xea" /* 坐标 */,1,0));
 	if (!load_component(number,t)) return false;
 	PE_SetZ(number,vector(t,"\xd7\xf8\xb1\xea" /* 坐标 */,2,1));
@@ -305,7 +377,37 @@ bool PE_GetActivityParts(int index, struct string *name, struct string **part_na
 bool PE_IsExistActivityPartsByName(struct string *name, struct string *part)
 { return find_part(find_activity(name),part) != NULL; }
 int PE_GetActivityPartsNumber(struct string *name, struct string *part) {
-	struct activity_part *p = find_part(find_activity(name),part); return p ? p->number : -1;
+	struct activity_part *p = find_part(find_activity(name),part); return p ? p->number : 0;
+}
+bool PE_IsExistActivityPartsByNumber(struct string *name, int number)
+{ return find_part_number(find_activity(name),number) != NULL; }
+void PE_GetActivityPartsName(struct string **out, struct string *name, int number)
+{
+	if (!out) return;
+	struct activity_part *p = find_part_number(find_activity(name),number);
+	struct string *result = p ? string_ref(p->name) : cstr_to_string("");
+	free_string(*out); *out = result;
+}
+int PE_NumofActivityIntentDataDestination(struct string *name, struct string *part)
+{
+	struct activity_part *p = find_part(find_activity(name),part);
+	return p && p->destinations ? p->destinations->nr_items : 0;
+}
+void PE_GetActivityIntentDataDestination(struct string **out, int index,
+		struct string *name, struct string *part)
+{
+	if (!out) return;
+	struct activity_part *p = find_part(find_activity(name),part);
+	struct ex_value *value = p && p->destinations && index >= 0
+		? ex_list_get(p->destinations,index) : NULL;
+	struct string *result = value && value->type == EX_STRING
+		? string_ref(value->s) : cstr_to_string("");
+	free_string(*out); *out = result;
+}
+int PE_GetActivityIntentDataType(struct string *name, struct string *part)
+{
+	struct activity_part *p = find_part(find_activity(name),part);
+	return p ? p->intent_type : 0;
 }
 bool PE_IsExistActivityIntentData(struct string *name, struct string *part) {
 	struct activity_part *p = find_part(find_activity(name),part); return p && p->has_intent;

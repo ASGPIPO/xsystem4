@@ -440,6 +440,12 @@ void parts_recalculate_hitbox(struct parts *parts)
 
 static void parts_update_global_pos(struct parts *parts, Point parent_pos)
 {
+	if (parts->parent && parts->parent->states[0].type == PARTS_LAYOUT_BOX
+			&& parts->parent->states[0].layout_box.layout_type == PARTS_LAYOUT_FREE) {
+		parent_pos.x += parts->parent->states[0].common.origin_offset.x;
+		parent_pos.y += parts->parent->states[0].common.origin_offset.y;
+	}
+
 	parts->global.pos = (Point) {
 		parent_pos.x + parts->local.pos.x,
 		parent_pos.y + parts->local.pos.y
@@ -1112,10 +1118,18 @@ static void parts_combine_params(struct parts_params *parent, struct parts_param
 			? child->alpha_clipper_parts_no : parent->alpha_clipper_parts_no;
 }
 
+static void parts_measure_layout(struct parts *parts);
+
 static void parts_update_component(struct parts *parts)
 {
+	if (parts->states[0].type == PARTS_LAYOUT_BOX) parts_measure_layout(parts);
 	parts_combine_params(parts->parent ? &parts->parent->global : &root_params,
 			&parts->local, &parts->global);
+	if (parts->parent && parts->parent->states[0].type == PARTS_LAYOUT_BOX
+			&& parts->parent->states[0].layout_box.layout_type == PARTS_LAYOUT_FREE) {
+		parts->global.pos.x += parts->parent->states[0].common.origin_offset.x;
+		parts->global.pos.y += parts->parent->states[0].common.origin_offset.y;
+	}
 	if (parts_get_sprite_z(parts) != parts->sp.z
 			|| parts_get_sprite_z2(parts) != parts->sp.z2) {
 		parts_list_resort(parts);
@@ -1842,8 +1856,7 @@ int PE_GetPartsUpperLeftPosX(int parts_no, int state)
 		return 0;
 	struct parts *parts = parts_get(parts_no);
 	int x = parts->states[state].common.hitbox.x;
-	if (parts->parent)
-		x += parts->parent->global.pos.x;
+	x += parts->global.pos.x - parts->local.pos.x;
 	return x;
 }
 
@@ -1853,8 +1866,7 @@ int PE_GetPartsUpperLeftPosY(int parts_no, int state)
 		return 0;
 	struct parts *parts = parts_get(parts_no);
 	int y = parts->states[state].common.hitbox.y;
-	if (parts->parent)
-		y += parts->parent->global.pos.y;
+	y += parts->global.pos.y - parts->local.pos.y;
 	return y;
 }
 

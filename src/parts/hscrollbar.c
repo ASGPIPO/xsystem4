@@ -65,6 +65,7 @@ static bool draw_skin(int number, int state, struct string *base, const char *su
 static bool redraw(struct parts *p)
 {
 	struct parts_hscrollbar *b = p->hscrollbar;
+	if (!b->cg_name->size) return true;
 	const char *left[] = {
 		"\xa3\xaf\xd7\xf3\xb0\xb4\xc5\xa5\xa3\xaf\xcd\xa8\xb3\xa3" /* ／左按钮／通常 */,
 		"\xa3\xaf\xd7\xf3\xb0\xb4\xc5\xa5\xa3\xaf\xbf\xaa" /* ／左按钮／开 */,
@@ -96,21 +97,22 @@ static bool redraw(struct parts *p)
 bool PE_CreateHScrollbar(int number, struct string *name, int width, int height,
 		int left, int right, int total, int view, int pos, int move)
 {
-	if (!name || !name->size || width <= 0 || height <= 0
+	if (width <= 0 || height <= 0
 			|| width > 4096 || height > 4096 || left < 0 || right < 0
 			|| left > width || right > width-left)
 		return false;
-	struct string *thumb = skin_name(name, thumb_skins[0]);
-	struct cg_metrics m;
-	bool valid = asset_cg_get_metrics_by_name(thumb->text, &m) && m.w > 0;
-	free_string(thumb);
-	if (!valid)
-		return false;
+	struct cg_metrics m = { .w = 1 };
+	if (name && name->size) {
+		struct string *thumb = skin_name(name, thumb_skins[0]);
+		bool valid = asset_cg_get_metrics_by_name(thumb->text, &m) && m.w > 0;
+		free_string(thumb);
+		if (!valid) return false;
+	}
 	struct parts *p = parts_get(number);
 	parts_hscrollbar_free(p);
 	p->hscrollbar = xcalloc(1, sizeof(*p->hscrollbar));
 	struct parts_hscrollbar *b = p->hscrollbar;
-	b->cg_name = string_dup(name);
+	b->cg_name = name ? string_dup(name) : string_dup(&EMPTY_STRING);
 	b->width = width;
 	b->height = height;
 	b->left = left;

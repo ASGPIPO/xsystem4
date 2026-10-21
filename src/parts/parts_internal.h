@@ -454,10 +454,15 @@ struct parts {
 
 struct parts_checkbox {
 	struct string *cg_name;
+	struct string *label;
+	struct text_style label_style;
+	int line_space;
 	int width, height;
 	bool checked;
 	int red, green, blue;
 };
+bool parts_checkbox_set_text(struct parts *parts, struct string *text,
+		struct text_style *style, int line_space);
 void parts_checkbox_free(struct parts *parts);
 void parts_checkbox_apply_color(struct parts *parts);
 void parts_checkbox_toggle(struct parts *parts);

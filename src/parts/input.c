@@ -47,10 +47,8 @@ static struct parts *drop_target = NULL;
 static bool parts_hittest(struct parts *parts, int state, Point pos)
 {
 	Rectangle hitbox = parts->states[state].common.hitbox;
-	if (parts->parent) {
-		hitbox.x += parts->parent->global.pos.x;
-		hitbox.y += parts->parent->global.pos.y;
-	}
+	hitbox.x += parts->global.pos.x - parts->local.pos.x;
+	hitbox.y += parts->global.pos.y - parts->local.pos.y;
 	return SDL_PointInRect(&pos, &hitbox);
 }
 
@@ -74,6 +72,8 @@ void parts_input_reset_drag(struct parts *parts)
 static void parts_update_mouse(struct parts *parts, Point cur_pos, bool cur_clicking,
 		int passed_time, bool *hover_consumed, bool *click_consumed)
 {
+	if (!parts->global.show || (parts->states[0].type == PARTS_LAYOUT_BOX && !parts->clickable))
+		return;
 	// Always use DEFAULT state hitbox regardless of the current display state.
 	bool is_hovered = parts_hittest(parts, PARTS_STATE_DEFAULT, cur_pos)
 		&& !*hover_consumed;
@@ -207,7 +207,8 @@ void PE_UpdateInputState(int passed_time)
 		if (cursor_moved && is_dragging) {
 			struct parts *new_drop = NULL;
 			PARTS_LIST_FOREACH_REVERSE(parts) {
-				if (parts == drag_parts)
+				if (parts == drag_parts || !parts->global.show
+						|| (parts->states[0].type == PARTS_LAYOUT_BOX && !parts->clickable))
 					continue;
 				if (parts_hittest(parts, PARTS_STATE_DEFAULT, cur_pos)) {
 					new_drop = parts;
