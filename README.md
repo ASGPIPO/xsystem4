@@ -4,6 +4,23 @@ xsystem4
 xsystem4 is an implementation of AliceSoft's System 4 game engine for unix-like
 operating systems.
 
+Fork status
+-----------
+
+This fork contains Rance03 preview changes based on
+[nunuhara/xsystem4](https://github.com/nunuhara/xsystem4). Preview 8.3 is the
+previous stable source checkpoint, based on
+`0f016a9c1a686b0eb059b548732cd80cc9b699bc`; documentation and submodule
+URLs are the only publication changes. The libsys4 dependency remains
+pinned to `3e9ff92674294a43485d39073206d5d615d70a2c` in
+[ASGPIPO/libsys4](https://github.com/ASGPIPO/libsys4).
+
+VM native tests and selected ordinary game UI checks passed. Physical
+Android devices, audible hardware output and long sessions remain untested.
+Rance03 preview builds use `-DRANCE03_SKIP_MOVIES=ON`. Male/female voice
+mixers 6/7 remain incomplete. Commercial game files and saves are not
+included; tests that use game fixtures need a separately supplied copy.
+
 Compatiblity
 ------------
 
