@@ -197,6 +197,8 @@ static struct ex_value *find_sound_metadata(enum asset_type type, const char *na
 	if (!*metadata) {
 		const char *map = type == ASSET_VOICE ? "timemap_voice2" : "timemap_sound2";
 		struct archive_data *data = asset_get_by_name(type, map, NULL);
+		if (!data && type == ASSET_VOICE)
+			data = asset_get_by_name(type, "timemap_sound", NULL);
 		if (!data)
 			return NULL;
 		*metadata = ex_read(data->data, data->size);
@@ -566,8 +568,9 @@ static void KiwiSoundEngine_PreLink(void)
 	if (libno < 0)
 		return;
 	if (ain_get_library_function(ain, libno, "Prepare") >= 0 && !config.mixer_nr_channels) {
-		static const char *names[] = { "Master", "Music", "Sound", "Voice", "GimicSE", "BackVoice" };
-		config.mixer_nr_channels = sizeof(names) / sizeof(*names);
+		static const char *names[] = { "Master", "Music", "Sound", "Voice", "GimicSE", "BackVoice", "MaleVoice", "FemaleVoice" };
+		config.mixer_nr_channels = ain_get_function(ain, "setMaleVoiceVolume") >= 0
+			&& ain_get_function(ain, "setFemaleVoiceVolume") >= 0 ? 8 : 6;
 		config.mixer_channels = xcalloc(config.mixer_nr_channels, sizeof(char*));
 		config.mixer_volumes = xcalloc(config.mixer_nr_channels, sizeof(int));
 		for (unsigned i = 0; i < config.mixer_nr_channels; i++) {
