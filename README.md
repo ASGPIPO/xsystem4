@@ -9,11 +9,14 @@ Fork status
 
 This fork contains Rance03 preview changes based on
 [nunuhara/xsystem4](https://github.com/nunuhara/xsystem4). Preview 8.3 is the
-previous stable source checkpoint; preview 8.4.1 is a candidate. Its engine
-source is based on `6c5748661f1d8ff280ba9df38c21fa4d0faabc31`; documentation
-and submodule URLs are the only publication changes. The libsys4 submodule
+previous stable source checkpoint. This source-only branch is based on
+`e5134c394554b02aecdd112b9e840ec9209aa21e`; documentation and submodule URLs
+are the only publication changes. The libsys4 submodule
 is pinned to `3e9ff92674294a43485d39073206d5d615d70a2c` in
 [ASGPIPO/libsys4](https://github.com/ASGPIPO/libsys4).
+
+The mixer volume readback rounding fix on this branch is not included in
+the preview 8.4.1 APK.
 
 VM native tests and ordinary backlog/settings UI checks passed. Physical
 Android devices, audible hardware output and long sessions remain untested.

@@ -16,6 +16,7 @@
 
 #include <stdatomic.h>
 #include <assert.h>
+#include <math.h>
 
 #include <sndfile.h>
 #include <SDL.h>
@@ -762,7 +763,7 @@ int mixer_get_volume(int n, int *volume)
 		return 0;
 	}
 	SDL_LockAudioDevice(audio_device);
-	*volume = clamp(0, 100, (int)(mixers[n].mixer.gain * 100));
+	*volume = clamp(0, 100, (int)lroundf(mixers[n].mixer.gain * 100));
 	SDL_UnlockAudioDevice(audio_device);
 	return 1;
 }
