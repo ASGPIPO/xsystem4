@@ -159,15 +159,22 @@ static void parts_render_cg(struct parts *parts, struct parts_common *common)
 	glm_scale(mw_transform, (vec3){ parts->global.scale.x, parts->global.scale.y, 1.0 });
 	glm_translate(mw_transform, (vec3){ common->origin_offset.x, common->origin_offset.y, 0 });
 
+	// Mirror the selected surface, keeping its origin and hitbox fixed.
+	vec2 flip_origin = { common->w, common->h };
+	if (common->surface_area.w || common->surface_area.h) {
+		flip_origin[0] = 2.0f * common->surface_area.x + common->surface_area.w;
+		flip_origin[1] = 2.0f * common->surface_area.y + common->surface_area.h;
+	}
+
 	switch (parts->sprite_deform) {
 	// Flip horizontally
 	case 1:
-		glm_translate(mw_transform, (vec3){ common->w, 0.0f, 0.0f });
+		glm_translate(mw_transform, (vec3){ flip_origin[0], 0.0f, 0.0f });
 		glm_scale(mw_transform, (vec3){ -common->w, common->h, 1.0f });
 		break;
 	// Flip vertically
 	case 2:
-		glm_translate(mw_transform, (vec3){ 0.0f, common->h, 0.0f });
+		glm_translate(mw_transform, (vec3){ 0.0f, flip_origin[1], 0.0f });
 		glm_scale(mw_transform, (vec3){ common->w, -common->h, 1.0f });
 		break;
 	default:

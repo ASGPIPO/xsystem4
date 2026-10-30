@@ -10,7 +10,7 @@ Fork status
 This fork contains Rance03 preview changes based on
 [nunuhara/xsystem4](https://github.com/nunuhara/xsystem4). Preview 8.3 is the
 previous stable source checkpoint; preview 8.4.1 is a candidate. Its engine
-source is based on `6c5748661f1d8ff280ba9df38c21fa4d0faabc31`; documentation
+source is based on `e82efb745da6ca44451c7ec46a00f0d66e581edb`; documentation
 and submodule URLs are the only publication changes. The libsys4 submodule
 is pinned to `3e9ff92674294a43485d39073206d5d615d70a2c` in
 [ASGPIPO/libsys4](https://github.com/ASGPIPO/libsys4).
